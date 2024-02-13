@@ -1,0 +1,11 @@
+# IDEs
+.idea
+
+go-fiber-tutorial.iml
+
+# Temporary files
+tmp
+
+# Environments
+.env
+.env.*
