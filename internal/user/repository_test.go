@@ -173,8 +173,8 @@ func TestSave_Successful(t *testing.T) {
 		Password:  "12345",
 	}
 	mock.ExpectBegin()
-	mock.ExpectPrepare(`INSERT INTO user`)
-	mock.ExpectExec(`INSERT INTO user`).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(`INSERT INTO users`)
+	mock.ExpectExec(`INSERT INTO users`).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
 	repository := NewRepository(dbx)
@@ -282,8 +282,8 @@ func TestSave_FailsDueToFailingExec(t *testing.T) {
 	expectedError := errors.New("Error Code: 1136. Column count doesn't match value count at row 1")
 
 	mock.ExpectBegin()
-	mock.ExpectPrepare(`INSERT INTO user`)
-	mock.ExpectExec(`INSERT INTO user`).WillReturnError(expectedError)
+	mock.ExpectPrepare(`INSERT INTO users`)
+	mock.ExpectExec(`INSERT INTO users`).WillReturnError(expectedError)
 	mock.ExpectRollback()
 
 	repository := NewRepository(dbx)
@@ -321,8 +321,8 @@ func TestSave_FailsDueToFailingExecWithFailingRollback(t *testing.T) {
 		expectedExecError, "Rollack error")
 
 	mock.ExpectBegin()
-	mock.ExpectPrepare(`INSERT INTO user`)
-	mock.ExpectExec(`INSERT INTO user`).WillReturnError(expectedExecError)
+	mock.ExpectPrepare(`INSERT INTO users`)
+	mock.ExpectExec(`INSERT INTO users`).WillReturnError(expectedExecError)
 	mock.ExpectRollback().WillReturnError(expectedRollbackError)
 
 	repository := NewRepository(dbx)
@@ -360,8 +360,8 @@ func TestSave_FailsDueToFailingCommit(t *testing.T) {
 	expectedError := errors.New("sql: transaction has already been committed or rolled back")
 
 	mock.ExpectBegin()
-	mock.ExpectPrepare(`INSERT INTO user`)
-	mock.ExpectExec(`INSERT INTO user`).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(`INSERT INTO users`)
+	mock.ExpectExec(`INSERT INTO users`).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit().WillReturnError(expectedError)
 
 	repository := NewRepository(dbx)
