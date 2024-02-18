@@ -3,6 +3,7 @@ module github.com/ferch5003/go-fiber-tutorial
 go 1.22.0
 
 require (
+	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/gofiber/fiber/v2 v2.52.0
 	github.com/jmoiron/sqlx v1.3.5
