@@ -374,3 +374,204 @@ func TestSave_FailsDueToFailingCommit(t *testing.T) {
 	require.ErrorContains(t, err, "sql")
 	require.ErrorContains(t, err, "transaction has already been committed or rolled back")
 }
+
+func TestDelete_Successful(t *testing.T) {
+	// Given
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	ctx := context.Background()
+
+	deletedUserID := 1
+	mock.ExpectBegin()
+	mock.ExpectPrepare(`DELETE FROM users`)
+	mock.ExpectExec(`DELETE FROM users`).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	repository := NewRepository(dbx)
+
+	// When
+	err = repository.Delete(ctx, deletedUserID)
+
+	// Then
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestDelete_FailsDueToInvalidBeginTransaction(t *testing.T) {
+	// Given
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	ctx := context.Background()
+
+	deletedUserID := 0
+	expectedError := errors.New("You have an error in your SQL syntax")
+
+	mock.ExpectBegin().WillReturnError(expectedError)
+
+	repository := NewRepository(dbx)
+
+	// When
+	err = repository.Delete(ctx, deletedUserID)
+
+	// Then
+	require.ErrorContains(t, err, "You have an error in your SQL syntax")
+}
+
+func TestDelete_FailsDueToInvalidPreparation(t *testing.T) {
+	// Given
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	ctx := context.Background()
+
+	deletedUserID := 0
+	wrongQuery := regexp.QuoteMeta(`DELETE FROM users WHERE id = ();`)
+	expectedError := errors.New(`Prepare: could not match actual sql: \"DELETE FROM users WHERE id = ?;\" 
+										with expected regexp \"DELETE FROM users WHERE id = ();\"`)
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(wrongQuery).WillReturnError(expectedError)
+
+	repository := NewRepository(dbx)
+
+	// When
+	err = repository.Delete(ctx, deletedUserID)
+
+	// Then
+	require.ErrorContains(t, err, "Prepare: could not match actual sql")
+	require.ErrorContains(t, err, "with expected regexp")
+}
+
+func TestDelete_FailsDueToFailingExec(t *testing.T) {
+	// Given
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	ctx := context.Background()
+
+	deletedUserID := 0
+	expectedError := errors.New("Error Code: 1136. Column count doesn't match value count at row 1")
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(`DELETE FROM users`)
+	mock.ExpectExec(`DELETE FROM users`).WillReturnError(expectedError)
+	mock.ExpectRollback()
+
+	repository := NewRepository(dbx)
+
+	// When
+	err = repository.Delete(ctx, deletedUserID)
+
+	// Then
+	require.ErrorContains(t, err, "Error Code: 1136")
+	require.ErrorContains(t, err, "Column count doesn't match value count at row 1")
+}
+
+func TestDelete_FailsDueToFailingExecWithFailingRollback(t *testing.T) {
+	// Given
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	ctx := context.Background()
+
+	deletedUserID := 0
+	expectedExecError := errors.New("Error Code: 1136. Column count doesn't match value count at row 1")
+	expectedRollbackError := fmt.Errorf("delete failed: %v, unable to back: %v",
+		expectedExecError, "Rollack error")
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(`DELETE FROM users`)
+	mock.ExpectExec(`DELETE FROM users`).WillReturnError(expectedExecError)
+	mock.ExpectRollback().WillReturnError(expectedRollbackError)
+
+	repository := NewRepository(dbx)
+
+	// When
+	err = repository.Delete(ctx, deletedUserID)
+
+	// Then
+	require.ErrorContains(t, err, "delete failed")
+	require.ErrorContains(t, err, "Error Code: 1136")
+	require.ErrorContains(t, err, "Column count doesn't match value count at row 1")
+	require.ErrorContains(t, err, "unable to back")
+	require.ErrorContains(t, err, "Rollack error")
+}
+
+func TestDelete_FailsDueToFailingCommit(t *testing.T) {
+	// Given
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	ctx := context.Background()
+
+	deletedUserID := 0
+	expectedError := errors.New("sql: transaction has already been committed or rolled back")
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(`DELETE FROM users`)
+	mock.ExpectExec(`DELETE FROM users`).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit().WillReturnError(expectedError)
+
+	repository := NewRepository(dbx)
+
+	// When
+	err = repository.Delete(ctx, deletedUserID)
+
+	// Then
+	require.ErrorContains(t, err, "sql")
+	require.ErrorContains(t, err, "transaction has already been committed or rolled back")
+}
+
+func TestDelete_FailsDueToNoRowsAffected(t *testing.T) {
+	// Given
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	ctx := context.Background()
+
+	deletedUserID := 0
+	expectedError := errors.New("no rows affected")
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(`DELETE FROM users`)
+	mock.ExpectExec(`DELETE FROM users`).WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectCommit()
+
+	repository := NewRepository(dbx)
+
+	// When
+	err = repository.Delete(ctx, deletedUserID)
+
+	// Then
+	require.ErrorContains(t, err, expectedError.Error())
+}

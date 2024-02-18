@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"errors"
 	"github.com/ferch5003/go-fiber-tutorial/internal/domain"
 	"github.com/jmoiron/sqlx"
 )
@@ -10,6 +11,7 @@ const (
 	_getAllUsersStmt = `SELECT first_name, last_name, email FROM users;`
 	_getUserByIDStmt = `SELECT first_name, last_name, email FROM users WHERE id = ?;`
 	_saveUserStmt    = `INSERT INTO users (first_name, last_name, email, password) VALUES (?, ?, ?, ?);`
+	_deleteUserStmt  = `DELETE FROM users WHERE id = ?;`
 )
 
 type Repository interface {
@@ -99,6 +101,41 @@ func (r *repository) Update(ctx context.Context, user domain.User) error {
 }
 
 func (r *repository) Delete(ctx context.Context, id int) error {
-	//TODO implement me
-	panic("implement me")
+	tx, err := r.conn.Beginx()
+	if err != nil {
+		return err
+	}
+
+	stmt, err := tx.PreparexContext(ctx, _deleteUserStmt)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		err = stmt.Close()
+	}()
+
+	res, err := stmt.ExecContext(ctx, id)
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return rollbackErr
+		}
+
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+
+	affect, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if affect < 1 {
+		return errors.New("no rows affected")
+	}
+
+	return err
 }
