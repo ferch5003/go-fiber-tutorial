@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-func TestGetAll_Successful(t *testing.T) {
+func TestRepositoryGetAll_Successful(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -54,7 +54,7 @@ func TestGetAll_Successful(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestGetAll_FailsDueToInvalidSelect(t *testing.T) {
+func TestRepositoryGetAll_FailsDueToInvalidSelect(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -84,7 +84,7 @@ func TestGetAll_FailsDueToInvalidSelect(t *testing.T) {
 	require.ErrorContains(t, err, "with expected regexp")
 }
 
-func TestGet_Successful(t *testing.T) {
+func TestRepositoryGet_Successful(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -119,7 +119,7 @@ func TestGet_Successful(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestGet_FailsDueToInvalidGet(t *testing.T) {
+func TestRepositoryGet_FailsDueToInvalidGet(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -151,7 +151,7 @@ func TestGet_FailsDueToInvalidGet(t *testing.T) {
 	require.ErrorContains(t, err, "with expected regexp")
 }
 
-func TestSave_Successful(t *testing.T) {
+func TestRepositorySave_Successful(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -186,7 +186,7 @@ func TestSave_Successful(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestSave_FailsDueToInvalidBeginTransaction(t *testing.T) {
+func TestRepositorySave_FailsDueToInvalidBeginTransaction(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -219,7 +219,7 @@ func TestSave_FailsDueToInvalidBeginTransaction(t *testing.T) {
 	require.ErrorContains(t, err, "You have an error in your SQL syntax")
 }
 
-func TestSave_FailsDueToInvalidPreparation(t *testing.T) {
+func TestRepositorySave_FailsDueToInvalidPreparation(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -257,7 +257,7 @@ func TestSave_FailsDueToInvalidPreparation(t *testing.T) {
 	require.ErrorContains(t, err, "with expected regexp")
 }
 
-func TestSave_FailsDueToFailingExec(t *testing.T) {
+func TestRepositorySave_FailsDueToFailingExec(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -294,7 +294,7 @@ func TestSave_FailsDueToFailingExec(t *testing.T) {
 	require.ErrorContains(t, err, "Column count doesn't match value count at row 1")
 }
 
-func TestSave_FailsDueToFailingExecWithFailingRollback(t *testing.T) {
+func TestRepositorySave_FailsDueToFailingExecWithFailingRollback(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -336,7 +336,7 @@ func TestSave_FailsDueToFailingExecWithFailingRollback(t *testing.T) {
 	require.ErrorContains(t, err, "Rollack error")
 }
 
-func TestSave_FailsDueToFailingCommit(t *testing.T) {
+func TestRepositorySave_FailsDueToFailingCommit(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -372,7 +372,7 @@ func TestSave_FailsDueToFailingCommit(t *testing.T) {
 	require.ErrorContains(t, err, "transaction has already been committed or rolled back")
 }
 
-func TestUpdate_Successful(t *testing.T) {
+func TestRepositoryUpdate_Successful(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -404,7 +404,7 @@ func TestUpdate_Successful(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestUpdate_FailsDueToInvalidBeginTransaction(t *testing.T) {
+func TestRepositoryUpdate_FailsDueToInvalidBeginTransaction(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -435,7 +435,7 @@ func TestUpdate_FailsDueToInvalidBeginTransaction(t *testing.T) {
 	require.ErrorContains(t, err, "You have an error in your SQL syntax")
 }
 
-func TestUpdate_FailsDueToNoneColumnsToUpdate(t *testing.T) {
+func TestRepositoryUpdate_FailsDueToNoneColumnsToUpdate(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -462,7 +462,7 @@ func TestUpdate_FailsDueToNoneColumnsToUpdate(t *testing.T) {
 	require.ErrorContains(t, err, "User is empty")
 }
 
-func TestUpdate_FailsDueToInvalidPreparation(t *testing.T) {
+func TestRepositoryUpdate_FailsDueToInvalidPreparation(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -495,7 +495,7 @@ func TestUpdate_FailsDueToInvalidPreparation(t *testing.T) {
 	require.ErrorContains(t, err, "with expected regexp")
 }
 
-func TestUpdate_FailsDueToFailingExec(t *testing.T) {
+func TestRepositoryUpdate_FailsDueToFailingExec(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -530,7 +530,7 @@ func TestUpdate_FailsDueToFailingExec(t *testing.T) {
 	require.ErrorContains(t, err, "Column count doesn't match value count at row 1")
 }
 
-func TestUpdate_FailsDueToFailingExecWithFailingRollback(t *testing.T) {
+func TestRepositoryUpdate_FailsDueToFailingExecWithFailingRollback(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -570,7 +570,7 @@ func TestUpdate_FailsDueToFailingExecWithFailingRollback(t *testing.T) {
 	require.ErrorContains(t, err, "Rollack error")
 }
 
-func TestUpdate_FailsDueToFailingCommit(t *testing.T) {
+func TestRepositoryUpdate_FailsDueToFailingCommit(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -604,7 +604,7 @@ func TestUpdate_FailsDueToFailingCommit(t *testing.T) {
 	require.ErrorContains(t, err, "transaction has already been committed or rolled back")
 }
 
-func TestDelete_Successful(t *testing.T) {
+func TestRepositoryDelete_Successful(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -631,7 +631,7 @@ func TestDelete_Successful(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestDelete_FailsDueToInvalidBeginTransaction(t *testing.T) {
+func TestRepositoryDelete_FailsDueToInvalidBeginTransaction(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -656,7 +656,7 @@ func TestDelete_FailsDueToInvalidBeginTransaction(t *testing.T) {
 	require.ErrorContains(t, err, "You have an error in your SQL syntax")
 }
 
-func TestDelete_FailsDueToInvalidPreparation(t *testing.T) {
+func TestRepositoryDelete_FailsDueToInvalidPreparation(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -685,7 +685,7 @@ func TestDelete_FailsDueToInvalidPreparation(t *testing.T) {
 	require.ErrorContains(t, err, "with expected regexp")
 }
 
-func TestDelete_FailsDueToFailingExec(t *testing.T) {
+func TestRepositoryDelete_FailsDueToFailingExec(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -714,7 +714,7 @@ func TestDelete_FailsDueToFailingExec(t *testing.T) {
 	require.ErrorContains(t, err, "Column count doesn't match value count at row 1")
 }
 
-func TestDelete_FailsDueToFailingExecWithFailingRollback(t *testing.T) {
+func TestRepositoryDelete_FailsDueToFailingExecWithFailingRollback(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -748,7 +748,7 @@ func TestDelete_FailsDueToFailingExecWithFailingRollback(t *testing.T) {
 	require.ErrorContains(t, err, "Rollack error")
 }
 
-func TestDelete_FailsDueToFailingCommit(t *testing.T) {
+func TestRepositoryDelete_FailsDueToFailingCommit(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -777,7 +777,7 @@ func TestDelete_FailsDueToFailingCommit(t *testing.T) {
 	require.ErrorContains(t, err, "transaction has already been committed or rolled back")
 }
 
-func TestDelete_FailsDueToNoRowsAffected(t *testing.T) {
+func TestRepositoryDelete_FailsDueToNoRowsAffected(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
