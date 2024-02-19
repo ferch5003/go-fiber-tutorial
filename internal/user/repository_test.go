@@ -69,16 +69,16 @@ func TestGetAll_FailsDueToInvalidSelect(t *testing.T) {
 	expectedError := errors.New(`Query: could not match actual sql: \"SELECT first_name, last_name,
 										email FROM users;\" with expected regexp \"SELECT wrong FROM users;\"`)
 
-	var expectedUser domain.User
+	expectedUsers := make([]domain.User, 0)
 	mock.ExpectQuery(wrongQuery).WillReturnError(expectedError)
 
 	repository := NewRepository(dbx)
 
 	// When
-	users, err := repository.Get(ctx, 0)
+	users, err := repository.GetAll(ctx)
 
 	// Then
-	require.Equal(t, expectedUser, users)
+	require.Equal(t, expectedUsers, users)
 	require.ErrorContains(t, err, "Query")
 	require.ErrorContains(t, err, "could not match actual sql")
 	require.ErrorContains(t, err, "with expected regexp")
@@ -119,7 +119,7 @@ func TestGet_Successful(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestGet_FailsDueToInvalidSelect(t *testing.T) {
+func TestGet_FailsDueToInvalidGet(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -130,28 +130,25 @@ func TestGet_FailsDueToInvalidSelect(t *testing.T) {
 
 	ctx := context.Background()
 
-	expectedUserID := 1
-	expectedUser := domain.User{
-		FirstName: "Jhon",
-		LastName:  "Smith",
-		Email:     "jhon@example.com",
-	}
+	wrongQuery := regexp.QuoteMeta("SELECT wrong FROM users;")
+	expectedError := errors.New(`Query: could not match actual sql: \"SELECT first_name, last_name,
+										email FROM users WHERE id = ?;\" with expected regexp \"SELECT 
+										wrong FROM users;\"`)
 
-	columns := []string{"first_name", "last_name", "email"}
-	rows := sqlmock.NewRows(columns)
-	rows.AddRow(expectedUser.FirstName, expectedUser.LastName, expectedUser.Email)
-	mock.ExpectQuery("SELECT .*").WillReturnRows(rows)
+	expectedUser := domain.User{}
+
+	mock.ExpectQuery(wrongQuery).WillReturnError(expectedError)
 
 	repository := NewRepository(dbx)
 
 	// When
-	user, err := repository.Get(ctx, expectedUserID)
+	user, err := repository.Get(ctx, 0)
 
 	// Then
-	require.NoError(t, err)
-	require.NotNil(t, user)
 	require.Equal(t, expectedUser, user)
-	require.NoError(t, mock.ExpectationsWereMet())
+	require.ErrorContains(t, err, "Query")
+	require.ErrorContains(t, err, "could not match actual sql")
+	require.ErrorContains(t, err, "with expected regexp")
 }
 
 func TestSave_Successful(t *testing.T) {
