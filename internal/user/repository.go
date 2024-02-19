@@ -3,7 +3,9 @@ package user
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/ferch5003/go-fiber-tutorial/internal/domain"
+	"github.com/ferch5003/go-fiber-tutorial/internal/platform/sql"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -11,6 +13,7 @@ const (
 	_getAllUsersStmt = `SELECT first_name, last_name, email FROM users;`
 	_getUserByIDStmt = `SELECT first_name, last_name, email FROM users WHERE id = ?;`
 	_saveUserStmt    = `INSERT INTO users (first_name, last_name, email, password) VALUES (?, ?, ?, ?);`
+	_updateUserStmt  = `UPDATE users SET %s WHERE id = ?;`
 	_deleteUserStmt  = `DELETE FROM users WHERE id = ?;`
 )
 
@@ -96,8 +99,49 @@ func (r *repository) Save(ctx context.Context, user domain.User) (int, error) {
 }
 
 func (r *repository) Update(ctx context.Context, user domain.User) error {
-	//TODO implement me
-	panic("implement me")
+	columns := []string{"first_name", "last_name", "email"}
+
+	tx, err := r.conn.Beginx()
+	if err != nil {
+		return err
+	}
+
+	dynamicQuery, values := sql.DynamicQuery(columns, user)
+	if len(dynamicQuery) <= 0 {
+		return errors.New("no rows is going to be updated. User is empty")
+	}
+
+	values = append(values, user.ID)
+	query := fmt.Sprintf(_updateUserStmt, dynamicQuery)
+
+	stmt, err := tx.PreparexContext(ctx, query)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		err = stmt.Close()
+	}()
+
+	res, err := stmt.ExecContext(ctx, values...)
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return rollbackErr
+		}
+
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+
+	_, err = res.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	return err
 }
 
 func (r *repository) Delete(ctx context.Context, id int) error {

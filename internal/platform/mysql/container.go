@@ -27,33 +27,6 @@ func NewMySQLContainer(ctx context.Context) platform.Container {
 	}
 }
 
-func getSQLFiles(dir string) ([]string, error) {
-	// slice with only *.sql files.
-	sqlFiles := make([]string, 0)
-
-	// This regex only accepts *.sql files.
-	re := regexp.MustCompile(_sqlFilesRegex)
-
-	walk := func(path string, info fs.FileInfo, err error) error {
-		if !re.MatchString(path) {
-			return nil
-		}
-
-		if !info.IsDir() {
-			sqlFiles = append(sqlFiles, path)
-		}
-
-		return nil
-	}
-
-	err := filepath.Walk(dir, walk)
-	if err != nil {
-		return []string{}, err
-	}
-
-	return sqlFiles, nil
-}
-
 func (c *mysSQLContainer) CreateOrUseContainer(config *config.EnvVars) error {
 	migrationsDir, err := files.GetDir("migrations")
 	if err != nil {
@@ -90,4 +63,31 @@ func (c *mysSQLContainer) CreateOrUseContainer(config *config.EnvVars) error {
 
 func (c *mysSQLContainer) CleanContainer() error {
 	return c.container.Terminate(c.ctx)
+}
+
+func getSQLFiles(dir string) ([]string, error) {
+	// slice with only *.sql files.
+	sqlFiles := make([]string, 0)
+
+	// This regex only accepts *.sql files.
+	re := regexp.MustCompile(_sqlFilesRegex)
+
+	walk := func(path string, info fs.FileInfo, err error) error {
+		if !re.MatchString(path) {
+			return nil
+		}
+
+		if !info.IsDir() {
+			sqlFiles = append(sqlFiles, path)
+		}
+
+		return nil
+	}
+
+	err := filepath.Walk(dir, walk)
+	if err != nil {
+		return []string{}, err
+	}
+
+	return sqlFiles, nil
 }
