@@ -35,7 +35,7 @@ func Start(
 	cfg *config.EnvVars,
 	server *Server,
 	app *fiber.App,
-	router *router.Router) {
+	router *router.GeneralRouter) {
 	host := _defaultHost // Default Host
 	if cfg != nil && cfg.Host != "" {
 		host = cfg.Host

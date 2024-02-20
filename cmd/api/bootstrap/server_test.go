@@ -4,10 +4,19 @@ import (
 	"context"
 	"github.com/ferch5003/go-fiber-tutorial/cmd/api/router"
 	"github.com/ferch5003/go-fiber-tutorial/config"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/fx"
 	"testing"
 )
+
+type mockUserRouter struct {
+	mock.Mock
+}
+
+func (m *mockUserRouter) Register() {
+	m.Called()
+}
 
 func TestStart_Successful(t *testing.T) {
 	// Given
@@ -15,7 +24,17 @@ func TestStart_Successful(t *testing.T) {
 		ErrChan: make(chan error),
 	}
 
+	defer close(server.ErrChan)
+
+	mur := new(mockUserRouter)
+	mur.On("Register")
+
 	app := fx.New(
+		fx.Supply(
+			fx.Annotate(
+				mur,
+				fx.As(new(router.Router))),
+		),
 		fx.Provide(router.NewRouter),
 		fx.Provide(config.NewConfigurations),
 		fx.Supply(server),
@@ -41,7 +60,17 @@ func TestStart_FailsDueToInvalidConfiguration(t *testing.T) {
 		ErrChan: make(chan error),
 	}
 
+	defer close(server.ErrChan)
+
+	mur := new(mockUserRouter)
+	mur.On("Register")
+
 	app := fx.New(
+		fx.Supply(
+			fx.Annotate(
+				mur,
+				fx.As(new(router.Router))),
+		),
 		fx.Provide(router.NewRouter),
 		fx.Supply(&config.EnvVars{Host: "bad_host", Port: "bad_port"}),
 		fx.Supply(server),

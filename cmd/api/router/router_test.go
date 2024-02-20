@@ -2,15 +2,28 @@ package router
 
 import (
 	"github.com/gofiber/fiber/v2"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"net/http/httptest"
 	"testing"
 )
 
+type mockUserRouter struct {
+	mock.Mock
+}
+
+func (m *mockUserRouter) Register() {
+	m.Called()
+}
+
 func TestRegister_Successful(t *testing.T) {
 	// Given
 	app := fiber.New()
-	router := NewRouter(app) // Always have the /health endpoint.
+
+	mur := new(mockUserRouter)
+	mur.On("Register")
+
+	router := NewRouter(app, mur) // Always have the /health endpoint.
 	expectedRoute := "/health"
 	expectedStatusCode := fiber.StatusOK
 

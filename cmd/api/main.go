@@ -41,11 +41,19 @@ func main() {
 		// creates: *sqlx.DB
 		fx.Provide(mysql.NewMySQLConnection),
 
+		// Provide modules
+		router.NewUserModule,
+
 		// Start web server.
 		fx.Invoke(bootstrap.Start),
 	)
 
 	defer close(server.ErrChan)
+
+	select {
+	case <-server.ErrChan:
+	default:
+	}
 
 	if err := app.Start(ctx); err != nil {
 		panic(err)
