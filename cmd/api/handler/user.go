@@ -19,6 +19,7 @@ func NewUserHandler(service user.Service) *UserHandler {
 }
 
 type showUser struct {
+	ID        int    `json:"id"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
 	Email     string `json:"email"`
@@ -27,7 +28,7 @@ type showUser struct {
 func (h *UserHandler) Get(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
@@ -40,7 +41,7 @@ func (h *UserHandler) Get(c *fiber.Ctx) error {
 	}
 
 	var userData showUser
-	columns := []string{"FirstName", "LastName", "Email"}
+	columns := []string{"ID", "FirstName", "LastName", "Email"}
 	data.OverwriteStruct(&userData, obtainedUser, columns)
 
 	return c.Status(fiber.StatusOK).JSON(userData)
@@ -73,7 +74,11 @@ func (h *UserHandler) RegisterUser(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(createdUser)
+	var showedUser showUser
+	columns = []string{"ID", "FirstName", "LastName", "Email"}
+	data.OverwriteStruct(&showedUser, createdUser, columns)
+
+	return c.Status(fiber.StatusOK).JSON(showedUser)
 }
 
 func (h *UserHandler) Delete(c *fiber.Ctx) error {
@@ -85,7 +90,7 @@ func (h *UserHandler) Delete(c *fiber.Ctx) error {
 	}
 
 	if err := h.service.Delete(c.Context(), id); err != nil {
-		return c.Status(http.StatusNotFound).JSON(fiber.Map{
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
