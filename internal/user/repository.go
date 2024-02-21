@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	_getAllUsersStmt = `SELECT first_name, last_name, email FROM users;`
-	_getUserByIDStmt = `SELECT first_name, last_name, email FROM users WHERE id = ?;`
+	_getAllUsersStmt = `SELECT id, first_name, last_name, email FROM users;`
+	_getUserByIDStmt = `SELECT id, first_name, last_name, email FROM users WHERE id = ?;`
 	_saveUserStmt    = `INSERT INTO users (first_name, last_name, email, password) VALUES (?, ?, ?, ?);`
 	_updateUserStmt  = `UPDATE users SET %s WHERE id = ?;`
 	_deleteUserStmt  = `DELETE FROM users WHERE id = ?;`

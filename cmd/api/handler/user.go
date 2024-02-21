@@ -58,7 +58,7 @@ func (h *UserHandler) RegisterUser(c *fiber.Ctx) error {
 	var newUser registerUser
 
 	if err := c.BodyParser(&newUser); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
@@ -77,6 +77,54 @@ func (h *UserHandler) RegisterUser(c *fiber.Ctx) error {
 	var showedUser showUser
 	columns = []string{"ID", "FirstName", "LastName", "Email"}
 	data.OverwriteStruct(&showedUser, createdUser, columns)
+
+	return c.Status(fiber.StatusCreated).JSON(showedUser)
+}
+
+type updateUser struct {
+	FirstName string `json:"first_name" validate:"min=5,max=20"`
+	LastName  string `json:"last_name" validate:"min=5,max=20"`
+	Email     string `json:"email" validate:"email"`
+}
+
+func (h *UserHandler) Update(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	obtainedUser, err := h.service.Get(c.Context(), id)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	var userToUpdate updateUser
+
+	if err := c.BodyParser(&userToUpdate); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	columns := []string{"FirstName", "LastName", "Email"}
+	data.OverwriteStruct(&obtainedUser, userToUpdate, columns)
+
+	updatedUser, err := h.service.Update(c.Context(), obtainedUser)
+	if err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	var showedUser showUser
+	columns = []string{"FirstName", "LastName", "Email"}
+	data.OverwriteStruct(&showedUser, updatedUser, columns)
+
+	showedUser.ID = id
 
 	return c.Status(fiber.StatusOK).JSON(showedUser)
 }

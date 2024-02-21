@@ -59,6 +59,7 @@ func createServer(usm *userServiceMock) *fiber.App {
 	app.Route("/users", func(api fiber.Router) {
 		api.Get("/:id", userHandler.Get).Name("get")
 		api.Post("/register", userHandler.RegisterUser).Name("register")
+		api.Patch("/:id", userHandler.Update).Name("update")
 		api.Delete("/:id", userHandler.Delete).Name("delete")
 	}, "users.")
 
@@ -200,7 +201,7 @@ func TestUserHandlerRegisterUser_Successful(t *testing.T) {
 	resp, err := server.Test(req)
 
 	// Then
-	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+	require.Equal(t, fiber.StatusCreated, resp.StatusCode)
 	require.NoError(t, err)
 
 	body, err := io.ReadAll(resp.Body)
@@ -225,7 +226,7 @@ func TestUserHandlerRegisterUser_FailsDueToInvalidJSONBodyParse(t *testing.T) {
 	resp, _ := server.Test(req)
 
 	// Then
-	require.Equal(t, fiber.StatusUnprocessableEntity, resp.StatusCode)
+	require.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)

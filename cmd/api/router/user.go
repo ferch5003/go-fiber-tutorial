@@ -35,6 +35,7 @@ func (u userRouter) Register() {
 	u.App.Route("/users", func(api fiber.Router) {
 		api.Get("/:id<int>", u.Handler.Get).Name("get")
 		api.Post("/register", u.Handler.RegisterUser).Name("register")
+		api.Patch("/:id<int>", u.Handler.Update).Name("update")
 		api.Delete("/:id<int>", u.Handler.Delete).Name("delete")
 	}, "users.")
 }
