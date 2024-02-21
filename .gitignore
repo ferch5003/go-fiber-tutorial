@@ -8,4 +8,4 @@ tmp
 
 # Environments
 .env
-.env.*
+.env.prod
