@@ -7,6 +7,7 @@ import (
 	"github.com/ferch5003/go-fiber-tutorial/cmd/api/router"
 	"github.com/ferch5003/go-fiber-tutorial/config"
 	"github.com/ferch5003/go-fiber-tutorial/db/seeds"
+	"github.com/ferch5003/go-fiber-tutorial/internal/platform/console"
 	"github.com/ferch5003/go-fiber-tutorial/internal/platform/mysql"
 	"go.uber.org/fx"
 
@@ -24,7 +25,12 @@ func main() {
 
 	mySQLContainer := mysql.NewMySQLContainer(mysqlCtx)
 
+	cmd := console.NewConsole()
+
 	app := fx.New(
+		// Clear terminal/console
+		fx.Invoke(cmd.Clear),
+
 		// creates: config.EnvVars
 		fx.Provide(config.NewConfigurations),
 		// creates: *bootstrap.Server
@@ -54,12 +60,15 @@ func main() {
 		fx.Invoke(bootstrap.Start),
 	)
 
-	defer close(server.ErrChan)
-
-	select {
-	case <-server.ErrChan:
-	default:
-	}
+	defer func() {
+		select {
+		case _, ok := <-server.ErrChan:
+			if ok {
+				defer close(server.ErrChan)
+			}
+		default:
+		}
+	}()
 
 	if err := app.Start(ctx); err != nil {
 		panic(err)

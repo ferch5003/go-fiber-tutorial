@@ -22,6 +22,4 @@ func (s Seed) UsersSeed() {
 			panic(fmt.Sprintf("error seeding users: %v", err))
 		}
 	}
-
-	fmt.Print("users seeded successfully!")
 }
