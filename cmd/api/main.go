@@ -6,6 +6,7 @@ import (
 	"github.com/ferch5003/go-fiber-tutorial/cmd/api/bootstrap"
 	"github.com/ferch5003/go-fiber-tutorial/cmd/api/router"
 	"github.com/ferch5003/go-fiber-tutorial/config"
+	"github.com/ferch5003/go-fiber-tutorial/db/seeds"
 	"github.com/ferch5003/go-fiber-tutorial/internal/platform/mysql"
 	"go.uber.org/fx"
 
@@ -43,6 +44,11 @@ func main() {
 
 		// Provide modules
 		router.NewUserModule,
+
+		// Provide seeders
+		fx.Provide(seeds.NewSeed),
+
+		fx.Invoke(seeds.Execute),
 
 		// Start web server.
 		fx.Invoke(bootstrap.Start),
