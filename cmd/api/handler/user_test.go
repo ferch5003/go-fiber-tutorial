@@ -279,6 +279,183 @@ func TestUserHandlerRegisterUser_FailsDueToServiceError(t *testing.T) {
 	require.Contains(t, response.Error, "Column count doesn't match value count at row 1")
 }
 
+func TestUserHandlerUpdate_Successful(t *testing.T) {
+	// Given
+	userData := domain.User{
+		ID:        1,
+		FirstName: "John",
+		LastName:  "Smith",
+		Email:     "john@example.com",
+		Password:  "12345678",
+	}
+
+	updatedUser := userData
+	updatedUser.LastName = "Second"
+
+	expectedUser := showUser{
+		ID:        1,
+		FirstName: "John",
+		LastName:  "Second",
+		Email:     "john@example.com",
+	}
+
+	usm := new(userServiceMock)
+	usm.On("Get", mock.Anything, userData.ID).Return(userData, nil)
+	usm.On("Update", mock.Anything, updatedUser).Return(updatedUser, nil)
+
+	server := createServer(usm)
+
+	req := createRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, userData.ID), `{
+																	"last_name": "Second"
+																}`)
+
+	// When
+	resp, err := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+	require.NoError(t, err)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var showedUser showUser
+	err = json.Unmarshal(body, &showedUser)
+	require.NoError(t, err)
+
+	require.EqualValues(t, expectedUser, showedUser)
+}
+
+func TestUserHandlerUpdate_FailsDueToInvalidIntParam(t *testing.T) {
+	// Given
+	usm := new(userServiceMock)
+
+	server := createServer(usm)
+
+	req := createRequest(fiber.MethodPatch, fmt.Sprintf("%s/%s", _usersPath, "is_not_int"), "")
+
+	// When
+	resp, _ := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response errorResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.Contains(t, response.Error, "failed to convert")
+	require.Contains(t, response.Error, "parsing \"is_not_int\"")
+	require.Contains(t, response.Error, "invalid syntax")
+}
+
+func TestUserHandlerUpdate_FailsDueToObtainingUser(t *testing.T) {
+	// Given
+	expectedErr := errors.New("sql: no rows in result set")
+
+	usm := new(userServiceMock)
+	usm.On("Get", mock.Anything, 0).Return(domain.User{}, expectedErr)
+
+	server := createServer(usm)
+
+	req := createRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, 0), ``)
+
+	// When
+	resp, err := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
+	require.NoError(t, err)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response errorResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.Equal(t, expectedErr.Error(), response.Error)
+}
+
+func TestUserHandlerUpdate_FailsDueToInvalidJSONBodyParse(t *testing.T) {
+	// Given
+	userData := domain.User{
+		ID:        1,
+		FirstName: "John",
+		LastName:  "Smith",
+		Email:     "john@example.com",
+		Password:  "12345678",
+	}
+
+	usm := new(userServiceMock)
+	usm.On("Get", mock.Anything, userData.ID).Return(userData, nil)
+
+	server := createServer(usm)
+
+	req := createRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, userData.ID), `{invalid_format}`)
+
+	// When
+	resp, _ := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response errorResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.Contains(t, response.Error, "invalid character 'i'")
+	require.Contains(t, response.Error, "looking for beginning of object key string")
+}
+
+func TestUserHandlerUpdate_FailsDueToServiceError(t *testing.T) {
+	// Given
+	userData := domain.User{
+		ID:        1,
+		FirstName: "John",
+		LastName:  "Smith",
+		Email:     "john@example.com",
+		Password:  "12345678",
+	}
+
+	updatedUser := userData
+	updatedUser.LastName = "Second"
+
+	expectedError := errors.New("Error Code: 1136. Column count doesn't match value count at row 1")
+
+	usm := new(userServiceMock)
+	usm.On("Get", mock.Anything, userData.ID).Return(userData, nil)
+	usm.On("Update", mock.Anything, updatedUser).Return(domain.User{}, expectedError)
+
+	server := createServer(usm)
+
+	req := createRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, userData.ID), `{
+																	"last_name": "Second"
+																}`)
+
+	// When
+	resp, _ := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusUnprocessableEntity, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response errorResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.Contains(t, response.Error, "Error Code: 1136")
+	require.Contains(t, response.Error, "Column count doesn't match value count at row 1")
+}
+
 func TestUserHandlerDelete_Successful(t *testing.T) {
 	// Given
 	expectedUserID := 1
