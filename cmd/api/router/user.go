@@ -33,9 +33,13 @@ func NewUserRouter(app *fiber.App, userHandler *handler.UserHandler) Router {
 
 func (u userRouter) Register() {
 	u.App.Route("/users", func(api fiber.Router) {
-		api.Get("/:id<int>", u.Handler.Get).Name("get")
 		api.Post("/register", u.Handler.RegisterUser).Name("register")
-		api.Patch("/:id<int>", u.Handler.Update).Name("update")
-		api.Delete("/:id<int>", u.Handler.Delete).Name("delete")
+		api.Post("/login", u.Handler.RegisterUser).Name("login")
+
+		// Using JWT Middleware
+		protectedRoutes := api.Group("")
+		protectedRoutes.Get("/:id<int>", u.Handler.Get).Name("get")
+		protectedRoutes.Patch("/:id<int>", u.Handler.Update).Name("update")
+		protectedRoutes.Delete("/:id<int>", u.Handler.Delete).Name("delete")
 	}, "users.")
 }
