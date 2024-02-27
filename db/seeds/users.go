@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/ferch5003/go-fiber-tutorial/internal/domain"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // UsersSeed seeds roles data.
@@ -15,9 +16,14 @@ func (s Seed) UsersSeed() {
 			panic(err)
 		}
 
-		user.Password = "12345678"
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte("12345678"), bcrypt.DefaultCost)
+		if err != nil {
+			panic(fmt.Sprintf("error seeding users: %v", err))
+		}
 
-		_, err := s.userRepository.Save(context.Background(), user)
+		user.Password = string(hashedPassword)
+
+		_, err = s.userRepository.Save(context.Background(), user)
 		if err != nil {
 			panic(fmt.Sprintf("error seeding users: %v", err))
 		}

@@ -90,6 +90,12 @@ func (h *UserHandler) RegisterUser(c *fiber.Ctx) error {
 	columns := []string{"FirstName", "LastName", "Email", "Password"}
 	data.OverwriteStruct(&userData, newUser, columns)
 
+	if err := userData.HashPassword(); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"error": userValidations,
+		})
+	}
+
 	createdUser, err := h.service.Save(c.Context(), userData)
 	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
