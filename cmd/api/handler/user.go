@@ -92,7 +92,7 @@ func (h *UserHandler) RegisterUser(c *fiber.Ctx) error {
 
 	if err := userData.HashPassword(); err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"error": userValidations,
+			"error": err.Error(),
 		})
 	}
 
@@ -151,7 +151,7 @@ func (h *UserHandler) LoginUser(c *fiber.Ctx) error {
 		})
 	}
 
-	if userData.Password != obtainedUser.Password {
+	if err := obtainedUser.ValidatePassword(userData.Password); err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Email or Password are incorrect.",
 		})

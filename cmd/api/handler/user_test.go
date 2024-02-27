@@ -16,6 +16,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -231,7 +232,7 @@ func TestUserHandlerRegisterUser_Successful(t *testing.T) {
 	}
 
 	usm := new(userServiceMock)
-	usm.On("Save", mock.Anything, userData).Return(savedUser, nil)
+	usm.On("Save", mock.Anything, mock.AnythingOfType("domain.User")).Return(savedUser, nil)
 
 	server := createServer(usm)
 
@@ -320,17 +321,10 @@ func TestUserHandlerRegisterUser_FailsDueToValidations(t *testing.T) {
 
 func TestUserHandlerRegisterUser_FailsDueToServiceError(t *testing.T) {
 	// Given
-	userData := domain.User{
-		FirstName: "John",
-		LastName:  "Smith",
-		Email:     "john@example.com",
-		Password:  "12345678",
-	}
-
 	expectedError := errors.New("Error Code: 1136. Column count doesn't match value count at row 1")
 
 	usm := new(userServiceMock)
-	usm.On("Save", mock.Anything, userData).Return(domain.User{}, expectedError)
+	usm.On("Save", mock.Anything, mock.AnythingOfType("domain.User")).Return(domain.User{}, expectedError)
 
 	server := createServer(usm)
 
@@ -359,6 +353,48 @@ func TestUserHandlerRegisterUser_FailsDueToServiceError(t *testing.T) {
 	require.Contains(t, response.Error, "Column count doesn't match value count at row 1")
 }
 
+func TestUserHandlerRegisterUser_FailsDueToLongPasswordToHash(t *testing.T) {
+	// Given
+	userData := domain.User{
+		FirstName: "John",
+		LastName:  "Smith",
+		Email:     "john@example.com",
+		Password:  strings.Repeat("long", 19),
+	}
+
+	savedUser := userData
+	savedUser.ID = 1
+
+	usm := new(userServiceMock)
+
+	server := createServer(usm)
+
+	req, err := createRequest(fiber.MethodPost, _usersPath+"/register", nil, fmt.Sprintf(`{
+																	"first_name": "John",
+																	"last_name": "Smith",
+																	"email": "john@example.com",
+																	"password": "%s"
+																}`, userData.Password))
+	require.NoError(t, err)
+
+	// When
+	resp, err := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusUnprocessableEntity, resp.StatusCode)
+	require.NoError(t, err)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response errorResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.Contains(t, response.Error, "bcrypt")
+	require.Contains(t, response.Error, "password length exceeds 72 bytes")
+}
+
 func TestUserHandlerLoginUser_Successful(t *testing.T) {
 	// Given
 	userData := domain.User{
@@ -370,6 +406,8 @@ func TestUserHandlerLoginUser_Successful(t *testing.T) {
 
 	loggedUser := userData
 	loggedUser.ID = 1
+	err := loggedUser.HashPassword()
+	require.NoError(t, err)
 
 	expectedUser := showUser{
 		ID:        1,

@@ -22,3 +22,7 @@ func (u *User) HashPassword() error {
 
 	return nil
 }
+
+func (u *User) ValidatePassword(inputPassword string) error {
+	return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(inputPassword))
+}
