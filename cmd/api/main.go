@@ -64,7 +64,7 @@ func main() {
 		select {
 		case _, ok := <-server.ErrChan:
 			if ok {
-				defer close(server.ErrChan)
+				close(server.ErrChan)
 			}
 		default:
 		}
@@ -76,6 +76,10 @@ func main() {
 
 	select {
 	case <-ctx.Done():
+		if err := app.Stop(ctx); err != nil {
+			fmt.Println("Error stopping the app...", err)
+		}
+
 		fmt.Println("Application terminated successfully!")
 
 		if err := mySQLContainer.CleanContainer(); err != nil {
@@ -87,7 +91,7 @@ func main() {
 		fmt.Println(err)
 
 		if err = app.Stop(ctx); err != nil {
-			fmt.Println("Error stopping the app..")
+			fmt.Println("Error stopping the app...", err)
 		}
 
 		if err := mySQLContainer.CleanContainer(); err != nil {

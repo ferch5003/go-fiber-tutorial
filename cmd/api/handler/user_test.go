@@ -290,6 +290,34 @@ func TestUserHandlerRegisterUser_FailsDueToInvalidJSONBodyParse(t *testing.T) {
 	require.Contains(t, response.Error, "looking for beginning of object key string")
 }
 
+func TestUserHandlerRegisterUser_FailsDueToValidations(t *testing.T) {
+	// Given
+	usm := new(userServiceMock)
+
+	server := createServer(usm)
+
+	req, err := createRequest(fiber.MethodPost, _usersPath+"/register", nil, `{}`)
+	require.NoError(t, err)
+
+	// When
+	resp, _ := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response errorResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.Contains(t, response.Error, "[FirstName]: '' | Needs to implement 'required'")
+	require.Contains(t, response.Error, "[LastName]: '' | Needs to implement 'required'")
+	require.Contains(t, response.Error, "[Email]: '' | Needs to implement 'required'")
+	require.Contains(t, response.Error, "[Password]: '' | Needs to implement 'required'")
+}
+
 func TestUserHandlerRegisterUser_FailsDueToServiceError(t *testing.T) {
 	// Given
 	userData := domain.User{
@@ -406,6 +434,32 @@ func TestUserHandlerLoginUser_FailsDueToInvalidJSONBodyParse(t *testing.T) {
 
 	require.Contains(t, response.Error, "invalid character 'i'")
 	require.Contains(t, response.Error, "looking for beginning of object key string")
+}
+
+func TestUserHandlerLoginUser_FailsDueToValidations(t *testing.T) {
+	// Given
+	usm := new(userServiceMock)
+
+	server := createServer(usm)
+
+	req, err := createRequest(fiber.MethodPost, _usersPath+"/login", nil, `{}`)
+	require.NoError(t, err)
+
+	// When
+	resp, _ := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response errorResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.Contains(t, response.Error, "[Email]: '' | Needs to implement 'required'")
+	require.Contains(t, response.Error, "[Password]: '' | Needs to implement 'required'")
 }
 
 func TestUserHandlerLoginUser_FailsDueToServiceError(t *testing.T) {
@@ -679,6 +733,55 @@ func TestUserHandlerUpdate_FailsDueToInvalidJSONBodyParse(t *testing.T) {
 
 	require.Contains(t, response.Error, "invalid character 'i'")
 	require.Contains(t, response.Error, "looking for beginning of object key string")
+}
+
+func TestUserHandlerUpdate_FailsDueToIValidations(t *testing.T) {
+	// Given
+	userData := domain.User{
+		ID:        1,
+		FirstName: "John",
+		LastName:  "Smith",
+		Email:     "john@example.com",
+		Password:  "12345678",
+	}
+
+	usm := new(userServiceMock)
+	usm.On("Get", mock.Anything, userData.ID).Return(userData, nil)
+
+	server := createServer(usm)
+
+	authUser := &_jwtInfo{
+		ID:   1,
+		Name: "Failed",
+	}
+
+	req, err := createRequest(
+		fiber.MethodPatch,
+		fmt.Sprintf("%s/%d", _usersPath, userData.ID),
+		authUser,
+		`{
+				"first_name": "a",
+				"last_name": "b",
+				"email": "c"
+				}`)
+	require.NoError(t, err)
+
+	// When
+	resp, _ := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response errorResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.Contains(t, response.Error, "[FirstName]: 'a' | Needs to implement 'min'") // min 3
+	require.Contains(t, response.Error, "[LastName]: 'b' | Needs to implement 'min'")  // min 3
+	require.Contains(t, response.Error, "'c' | Needs to implement 'email'")            // c is not email format
 }
 
 func TestUserHandlerUpdate_FailsDueToServiceError(t *testing.T) {

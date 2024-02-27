@@ -6,6 +6,7 @@ import (
 	"github.com/ferch5003/go-fiber-tutorial/internal/domain"
 	"github.com/ferch5003/go-fiber-tutorial/internal/platform/data"
 	"github.com/ferch5003/go-fiber-tutorial/internal/platform/jwtauth"
+	"github.com/ferch5003/go-fiber-tutorial/internal/platform/validations"
 	"github.com/ferch5003/go-fiber-tutorial/internal/user"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
@@ -13,8 +14,9 @@ import (
 )
 
 type UserHandler struct {
-	config  *jwtauth.Config
-	service user.Service
+	config    *jwtauth.Config
+	validator *validations.XValidator
+	service   user.Service
 }
 
 func NewUserHandler(config *config.EnvVars, service user.Service) *UserHandler {
@@ -23,9 +25,12 @@ func NewUserHandler(config *config.EnvVars, service user.Service) *UserHandler {
 		Secret:  config.AppSecretKey,
 	}
 
+	myValidator := validations.NewValidator()
+
 	return &UserHandler{
-		config:  jwtConfig,
-		service: service,
+		config:    jwtConfig,
+		validator: myValidator,
+		service:   service,
 	}
 }
 
@@ -60,18 +65,24 @@ func (h *UserHandler) Get(c *fiber.Ctx) error {
 }
 
 type registerUser struct {
-	FirstName string `json:"first_name" validate:"required,min=5,max=20"`
-	LastName  string `json:"last_name" validate:"required,min=5,max=20"`
+	FirstName string `json:"first_name" validate:"required,min=3,max=20"`
+	LastName  string `json:"last_name" validate:"required,min=3,max=20"`
 	Email     string `json:"email" validate:"required,email"`
 	Password  string `json:"password" validate:"required,min=8"`
 }
 
 func (h *UserHandler) RegisterUser(c *fiber.Ctx) error {
 	var newUser registerUser
-
 	if err := c.BodyParser(&newUser); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
+		})
+	}
+
+	userValidations := h.validator.GetValidations(newUser)
+	if userValidations != "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": userValidations,
 		})
 	}
 
@@ -110,10 +121,16 @@ type loginUser struct {
 
 func (h *UserHandler) LoginUser(c *fiber.Ctx) error {
 	var logUser loginUser
-
 	if err := c.BodyParser(&logUser); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
+		})
+	}
+
+	userValidations := h.validator.GetValidations(logUser)
+	if userValidations != "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": userValidations,
 		})
 	}
 
@@ -152,9 +169,9 @@ func (h *UserHandler) LoginUser(c *fiber.Ctx) error {
 }
 
 type updateUser struct {
-	FirstName string `json:"first_name" validate:"min=5,max=20"`
-	LastName  string `json:"last_name" validate:"min=5,max=20"`
-	Email     string `json:"email" validate:"email"`
+	FirstName string `json:"first_name" validate:"omitempty,min=3,max=20"`
+	LastName  string `json:"last_name" validate:"omitempty,min=3,max=20"`
+	Email     string `json:"email" validate:"omitempty,email"`
 }
 
 func (h *UserHandler) Update(c *fiber.Ctx) error {
@@ -186,6 +203,13 @@ func (h *UserHandler) Update(c *fiber.Ctx) error {
 	if err := c.BodyParser(&userToUpdate); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
+		})
+	}
+
+	userValidations := h.validator.GetValidations(userToUpdate)
+	if userValidations != "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": userValidations,
 		})
 	}
 
