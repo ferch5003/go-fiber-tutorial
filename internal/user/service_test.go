@@ -23,6 +23,11 @@ func (mr *mockRepository) Get(ctx context.Context, id int) (domain.User, error) 
 	return args.Get(0).(domain.User), args.Error(1)
 }
 
+func (mr *mockRepository) GetByEmail(ctx context.Context, email string) (domain.User, error) {
+	args := mr.Called(ctx, email)
+	return args.Get(0).(domain.User), args.Error(1)
+}
+
 func (mr *mockRepository) Save(ctx context.Context, user domain.User) (int, error) {
 	args := mr.Called(ctx, user)
 	return args.Int(0), args.Error(1)
@@ -142,6 +147,45 @@ func TestServiceGet_FailsDueToRepositoryError(t *testing.T) {
 
 	// When
 	user, err := service.Get(context.Background(), nonExistingID)
+
+	// Then
+	require.ErrorContains(t, err, "Error Code: 1054")
+	require.ErrorContains(t, err, "Unknown column 'wrong' in 'field list'")
+	require.Equal(t, expectedUser, user)
+}
+
+func TestServiceGetByEmail_Successful(t *testing.T) {
+	// Given
+	expectedUser := domain.User{
+		Email:    "john@example.com",
+		Password: "12345678",
+	}
+
+	mr := new(mockRepository)
+	mr.On("GetByEmail", mock.Anything, expectedUser.Email).Return(expectedUser, nil)
+
+	service := NewService(mr)
+
+	// When
+	user, err := service.GetByEmail(context.Background(), expectedUser.Email)
+
+	// Then
+	require.NoError(t, err)
+	require.Equal(t, expectedUser, user)
+}
+
+func TestServiceGetByEmail_FailsDueToRepositoryError(t *testing.T) {
+	// Given
+	expectedUser := domain.User{}
+	expectedError := errors.New("Error Code: 1054. Unknown column 'wrong' in 'field list'")
+
+	mr := new(mockRepository)
+	mr.On("GetByEmail", mock.Anything, expectedUser.Email).Return(expectedUser, expectedError)
+
+	service := NewService(mr)
+
+	// When
+	user, err := service.GetByEmail(context.Background(), expectedUser.Email)
 
 	// Then
 	require.ErrorContains(t, err, "Error Code: 1054")

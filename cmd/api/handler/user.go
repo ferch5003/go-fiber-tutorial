@@ -103,6 +103,54 @@ func (h *UserHandler) RegisterUser(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(showedUser)
 }
 
+type loginUser struct {
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required,min=8"`
+}
+
+func (h *UserHandler) LoginUser(c *fiber.Ctx) error {
+	var logUser loginUser
+
+	if err := c.BodyParser(&logUser); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	var userData domain.User
+	columns := []string{"Email", "Password"}
+	data.OverwriteStruct(&userData, logUser, columns)
+
+	obtainedUser, err := h.service.GetByEmail(c.Context(), userData.Email)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	if userData.Password != obtainedUser.Password {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Email or Password are incorrect.",
+		})
+	}
+
+	fullName := fmt.Sprintf("%s %s", obtainedUser.FirstName, obtainedUser.LastName)
+	token, err := jwtauth.GenerateToken(obtainedUser.ID, fullName, *h.config)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	var showedUser showUser
+	columns = []string{"ID", "FirstName", "LastName", "Email"}
+	data.OverwriteStruct(&showedUser, obtainedUser, columns)
+
+	showedUser.Token = &token
+
+	return c.Status(fiber.StatusOK).JSON(showedUser)
+}
+
 type updateUser struct {
 	FirstName string `json:"first_name" validate:"min=5,max=20"`
 	LastName  string `json:"last_name" validate:"min=5,max=20"`

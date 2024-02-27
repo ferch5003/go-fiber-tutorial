@@ -12,6 +12,9 @@ type Service interface {
 	// Get obtain one User by ID.
 	Get(ctx context.Context, id int) (domain.User, error)
 
+	// GetByEmail obtain one User by Email.
+	GetByEmail(ctx context.Context, email string) (domain.User, error)
+
 	// Save a new User.
 	Save(ctx context.Context, user domain.User) (domain.User, error)
 
@@ -38,6 +41,10 @@ func (s service) GetAll(ctx context.Context) ([]domain.User, error) {
 
 func (s service) Get(ctx context.Context, id int) (domain.User, error) {
 	return s.repository.Get(ctx, id)
+}
+
+func (s service) GetByEmail(ctx context.Context, email string) (domain.User, error) {
+	return s.repository.GetByEmail(ctx, email)
 }
 
 func (s service) Save(ctx context.Context, user domain.User) (domain.User, error) {

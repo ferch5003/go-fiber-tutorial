@@ -151,6 +151,73 @@ func TestRepositoryGet_FailsDueToInvalidGet(t *testing.T) {
 	require.ErrorContains(t, err, "with expected regexp")
 }
 
+func TestRepositoryGetByEmail_Successful(t *testing.T) {
+	// Given
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	ctx := context.Background()
+
+	expectedUser := domain.User{
+		FirstName: "Jhon",
+		LastName:  "Smith",
+		Email:     "jhon@example.com",
+		Password:  "12345678",
+	}
+
+	columns := []string{"id", "first_name", "last_name", "email", "password"}
+	rows := sqlmock.NewRows(columns)
+	rows.AddRow(expectedUser.ID, expectedUser.FirstName, expectedUser.LastName, expectedUser.Email, expectedUser.Password)
+	mock.ExpectQuery("SELECT .*").WillReturnRows(rows)
+
+	repository := NewRepository(dbx)
+
+	// When
+	user, err := repository.GetByEmail(ctx, expectedUser.Email)
+
+	// Then
+	require.NoError(t, err)
+	require.NotNil(t, user)
+	require.Equal(t, expectedUser, user)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestRepositoryGetByEmail_FailsDueToInvalidGet(t *testing.T) {
+	// Given
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	ctx := context.Background()
+
+	wrongQuery := regexp.QuoteMeta("SELECT wrong FROM users;")
+	expectedError := errors.New(`Query: could not match actual sql: \"SELECT first_name, last_name, 
+										email, password FROM users WHERE email = ?;\" with expected regexp
+										\"SELECT wrong FROM users;\"`)
+
+	expectedUser := domain.User{}
+
+	mock.ExpectQuery(wrongQuery).WillReturnError(expectedError)
+
+	repository := NewRepository(dbx)
+
+	// When
+	user, err := repository.Get(ctx, 0)
+
+	// Then
+	require.Equal(t, expectedUser, user)
+	require.ErrorContains(t, err, "Query")
+	require.ErrorContains(t, err, "could not match actual sql")
+	require.ErrorContains(t, err, "with expected regexp")
+}
+
 func TestRepositorySave_Successful(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()

@@ -51,6 +51,11 @@ func (usm *userServiceMock) Get(ctx context.Context, id int) (domain.User, error
 	return args.Get(0).(domain.User), args.Error(1)
 }
 
+func (usm *userServiceMock) GetByEmail(ctx context.Context, email string) (domain.User, error) {
+	args := usm.Called(ctx, email)
+	return args.Get(0).(domain.User), args.Error(1)
+}
+
 func (usm *userServiceMock) Save(ctx context.Context, user domain.User) (domain.User, error) {
 	args := usm.Called(ctx, user)
 	return args.Get(0).(domain.User), args.Error(1)
@@ -79,6 +84,7 @@ func createServer(usm *userServiceMock) *fiber.App {
 	app.Route("/users", func(api fiber.Router) {
 		api.Get("/:id", userHandler.Get).Name("get")
 		api.Post("/register", userHandler.RegisterUser).Name("register")
+		api.Post("/login", userHandler.LoginUser).Name("login")
 
 		// Using JWT Middleware.
 		protectedRoutes := api.Group("", middlewares.JWTMiddleware(userHandler.config.Secret))
@@ -323,6 +329,163 @@ func TestUserHandlerRegisterUser_FailsDueToServiceError(t *testing.T) {
 
 	require.Contains(t, response.Error, "Error Code: 1136")
 	require.Contains(t, response.Error, "Column count doesn't match value count at row 1")
+}
+
+func TestUserHandlerLoginUser_Successful(t *testing.T) {
+	// Given
+	userData := domain.User{
+		FirstName: "John",
+		LastName:  "Smith",
+		Email:     "john@example.com",
+		Password:  "12345678",
+	}
+
+	loggedUser := userData
+	loggedUser.ID = 1
+
+	expectedUser := showUser{
+		ID:        1,
+		FirstName: "John",
+		LastName:  "Smith",
+		Email:     "john@example.com",
+	}
+
+	usm := new(userServiceMock)
+	usm.On("GetByEmail", mock.Anything, userData.Email).Return(loggedUser, nil)
+
+	server := createServer(usm)
+
+	req, err := createRequest(fiber.MethodPost, _usersPath+"/login", nil, `{
+																	"email": "john@example.com",
+																	"password": "12345678"
+																}`)
+	require.NoError(t, err)
+
+	// When
+	resp, err := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+	require.NoError(t, err)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var showedUser showUser
+	err = json.Unmarshal(body, &showedUser)
+	require.NoError(t, err)
+
+	token := showedUser.Token
+	showedUser.Token = nil
+
+	require.EqualValues(t, expectedUser, showedUser)
+	require.NotNil(t, token)
+}
+
+func TestUserHandlerLoginUser_FailsDueToInvalidJSONBodyParse(t *testing.T) {
+	// Given
+	usm := new(userServiceMock)
+
+	server := createServer(usm)
+
+	req, err := createRequest(fiber.MethodPost, _usersPath+"/login", nil, `{invalid_format}`)
+	require.NoError(t, err)
+
+	// When
+	resp, _ := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response errorResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.Contains(t, response.Error, "invalid character 'i'")
+	require.Contains(t, response.Error, "looking for beginning of object key string")
+}
+
+func TestUserHandlerLoginUser_FailsDueToServiceError(t *testing.T) {
+	// Given
+	userData := domain.User{
+		FirstName: "John",
+		LastName:  "Smith",
+		Email:     "john@example.com",
+		Password:  "12345678",
+	}
+
+	expectedError := errors.New("Error Code: 1136. Column count doesn't match value count at row 1")
+
+	usm := new(userServiceMock)
+	usm.On("GetByEmail", mock.Anything, userData.Email).Return(domain.User{}, expectedError)
+
+	server := createServer(usm)
+
+	req, err := createRequest(fiber.MethodPost, _usersPath+"/login", nil, `{
+																	"email": "john@example.com",
+																	"password": "12345678"
+																}`)
+	require.NoError(t, err)
+
+	// When
+	resp, _ := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response errorResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.Contains(t, response.Error, "Error Code: 1136")
+	require.Contains(t, response.Error, "Column count doesn't match value count at row 1")
+}
+
+func TestUserHandlerLoginUser_FailsDueToInvalidCredentials(t *testing.T) {
+	// Given
+	userData := domain.User{
+		FirstName: "John",
+		LastName:  "Smith",
+		Email:     "john@example.com",
+		Password:  "12345678",
+	}
+
+	loggedUser := userData
+	loggedUser.ID = 1
+
+	expectedError := errors.New("Email or Password are incorrect.")
+
+	usm := new(userServiceMock)
+	usm.On("GetByEmail", mock.Anything, userData.Email).Return(loggedUser, nil)
+
+	server := createServer(usm)
+
+	req, err := createRequest(fiber.MethodPost, _usersPath+"/login", nil, `{
+																	"email": "john@example.com",
+																	"password": "bad_password"
+																}`)
+	require.NoError(t, err)
+
+	// When
+	resp, _ := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusUnauthorized, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response errorResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.ErrorContains(t, expectedError, response.Error)
 }
 
 func TestUserHandlerUpdate_Successful(t *testing.T) {

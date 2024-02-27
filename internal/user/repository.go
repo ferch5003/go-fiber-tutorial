@@ -10,11 +10,12 @@ import (
 )
 
 const (
-	_getAllUsersStmt = `SELECT id, first_name, last_name, email FROM users;`
-	_getUserByIDStmt = `SELECT id, first_name, last_name, email FROM users WHERE id = ?;`
-	_saveUserStmt    = `INSERT INTO users (first_name, last_name, email, password) VALUES (?, ?, ?, ?);`
-	_updateUserStmt  = `UPDATE users SET %s WHERE id = ?;`
-	_deleteUserStmt  = `DELETE FROM users WHERE id = ?;`
+	_getAllUsersStmt    = `SELECT id, first_name, last_name, email FROM users;`
+	_getUserByIDStmt    = `SELECT id, first_name, last_name, email FROM users WHERE id = ?;`
+	_getUserByEmailStmt = `SELECT id, first_name, last_name, email, password FROM users WHERE email = ?;`
+	_saveUserStmt       = `INSERT INTO users (first_name, last_name, email, password) VALUES (?, ?, ?, ?);`
+	_updateUserStmt     = `UPDATE users SET %s WHERE id = ?;`
+	_deleteUserStmt     = `DELETE FROM users WHERE id = ?;`
 )
 
 type Repository interface {
@@ -23,6 +24,9 @@ type Repository interface {
 
 	// Get obtain one User by ID.
 	Get(ctx context.Context, id int) (domain.User, error)
+
+	// GetByEmail obtain one User by Email.
+	GetByEmail(ctx context.Context, email string) (domain.User, error)
 
 	// Save a new User into the database.
 	Save(ctx context.Context, user domain.User) (int, error)
@@ -56,6 +60,16 @@ func (r *repository) Get(ctx context.Context, id int) (domain.User, error) {
 	var user domain.User
 
 	if err := r.conn.GetContext(ctx, &user, _getUserByIDStmt, id); err != nil {
+		return domain.User{}, err
+	}
+
+	return user, nil
+}
+
+func (r *repository) GetByEmail(ctx context.Context, email string) (domain.User, error) {
+	var user domain.User
+
+	if err := r.conn.GetContext(ctx, &user, _getUserByEmailStmt, email); err != nil {
 		return domain.User{}, err
 	}
 

@@ -39,6 +39,7 @@ func (u userRouter) Register() {
 	u.App.Route("/users", func(api fiber.Router) {
 		api.Get("/:id<int>", u.Handler.Get).Name("get")
 		api.Post("/register", u.Handler.RegisterUser).Name("register")
+		api.Post("/login", u.Handler.LoginUser).Name("login")
 
 		// Using JWT Middleware.
 		protectedRoutes := api.Group("", middlewares.JWTMiddleware(u.config.AppSecretKey))
