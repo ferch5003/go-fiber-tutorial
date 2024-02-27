@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ferch5003/go-fiber-tutorial/config"
 	"github.com/ferch5003/go-fiber-tutorial/internal/domain"
+	"github.com/ferch5003/go-fiber-tutorial/internal/middlewares"
+	"github.com/ferch5003/go-fiber-tutorial/internal/platform/jwtauth"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -17,6 +20,18 @@ import (
 )
 
 const _usersPath = "/users"
+
+var _testConfigs = &config.EnvVars{
+	AppName:      "test",
+	AppSecretKey: "test",
+}
+
+var _testSessionConfigs *jwtauth.Config
+
+type _jwtInfo struct {
+	ID   int
+	Name string
+}
 
 type errorResponse struct {
 	Error string `json:"error"`
@@ -54,23 +69,40 @@ func (usm *userServiceMock) Delete(ctx context.Context, id int) error {
 func createServer(usm *userServiceMock) *fiber.App {
 	app := fiber.New()
 
-	userHandler := NewUserHandler(usm)
+	userHandler := NewUserHandler(_testConfigs, usm)
+
+	_testSessionConfigs = &jwtauth.Config{
+		AppName: _testConfigs.AppName,
+		Secret:  _testConfigs.AppSecretKey,
+	}
 
 	app.Route("/users", func(api fiber.Router) {
 		api.Get("/:id", userHandler.Get).Name("get")
 		api.Post("/register", userHandler.RegisterUser).Name("register")
-		api.Patch("/:id", userHandler.Update).Name("update")
-		api.Delete("/:id", userHandler.Delete).Name("delete")
+
+		// Using JWT Middleware.
+		protectedRoutes := api.Group("", middlewares.JWTMiddleware(userHandler.config.Secret))
+		protectedRoutes.Patch("/:id", userHandler.Update).Name("update")
+		protectedRoutes.Delete("/:id", userHandler.Delete).Name("delete")
 	}, "users.")
 
 	return app
 }
 
-func createRequest(method string, url string, body string) *http.Request {
+func createRequest(method string, url string, userSession *_jwtInfo, body string) (*http.Request, error) {
 	req := httptest.NewRequest(method, url, bytes.NewBuffer([]byte(body)))
 	req.Header.Add("Content-Type", "application/json")
 
-	return req
+	if userSession != nil {
+		token, err := jwtauth.GenerateToken(userSession.ID, userSession.Name, *_testSessionConfigs)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	}
+
+	return req, nil
 }
 
 func TestUserHandlerGet_Successful(t *testing.T) {
@@ -93,7 +125,12 @@ func TestUserHandlerGet_Successful(t *testing.T) {
 
 	server := createServer(usm)
 
-	req := createRequest(fiber.MethodGet, fmt.Sprintf("%s/%d", _usersPath, expectedUserID), "")
+	req, err := createRequest(
+		fiber.MethodGet,
+		fmt.Sprintf("%s/%d", _usersPath, expectedUserID),
+		nil,
+		"")
+	require.NoError(t, err)
 
 	// When
 	resp, err := server.Test(req)
@@ -118,7 +155,8 @@ func TestUserHandlerGet_FailsDueToInvalidIntParam(t *testing.T) {
 
 	server := createServer(usm)
 
-	req := createRequest(fiber.MethodGet, fmt.Sprintf("%s/%s", _usersPath, "is_not_int"), "")
+	req, err := createRequest(fiber.MethodGet, fmt.Sprintf("%s/%s", _usersPath, "is_not_int"), nil, "")
+	require.NoError(t, err)
 
 	// When
 	resp, _ := server.Test(req)
@@ -148,7 +186,8 @@ func TestUserHandlerGet_FailsDueToServiceError(t *testing.T) {
 
 	server := createServer(usm)
 
-	req := createRequest(fiber.MethodGet, fmt.Sprintf("%s/%s", _usersPath, "1"), "")
+	req, err := createRequest(fiber.MethodGet, fmt.Sprintf("%s/%s", _usersPath, "1"), nil, "")
+	require.NoError(t, err)
 
 	// When
 	resp, _ := server.Test(req)
@@ -190,12 +229,13 @@ func TestUserHandlerRegisterUser_Successful(t *testing.T) {
 
 	server := createServer(usm)
 
-	req := createRequest(fiber.MethodPost, _usersPath+"/register", `{
+	req, err := createRequest(fiber.MethodPost, _usersPath+"/register", nil, `{
 																	"first_name": "John",
 																	"last_name": "Smith",
 																	"email": "john@example.com",
 																	"password": "12345678"
 																}`)
+	require.NoError(t, err)
 
 	// When
 	resp, err := server.Test(req)
@@ -211,7 +251,11 @@ func TestUserHandlerRegisterUser_Successful(t *testing.T) {
 	err = json.Unmarshal(body, &showedUser)
 	require.NoError(t, err)
 
+	token := showedUser.Token
+	showedUser.Token = nil
+
 	require.EqualValues(t, expectedUser, showedUser)
+	require.NotNil(t, token)
 }
 
 func TestUserHandlerRegisterUser_FailsDueToInvalidJSONBodyParse(t *testing.T) {
@@ -220,7 +264,8 @@ func TestUserHandlerRegisterUser_FailsDueToInvalidJSONBodyParse(t *testing.T) {
 
 	server := createServer(usm)
 
-	req := createRequest(fiber.MethodPost, _usersPath+"/register", `{invalid_format}`)
+	req, err := createRequest(fiber.MethodPost, _usersPath+"/register", nil, `{invalid_format}`)
+	require.NoError(t, err)
 
 	// When
 	resp, _ := server.Test(req)
@@ -255,12 +300,13 @@ func TestUserHandlerRegisterUser_FailsDueToServiceError(t *testing.T) {
 
 	server := createServer(usm)
 
-	req := createRequest(fiber.MethodPost, _usersPath+"/register", `{
+	req, err := createRequest(fiber.MethodPost, _usersPath+"/register", nil, `{
 																	"first_name": "John",
 																	"last_name": "Smith",
 																	"email": "john@example.com",
 																	"password": "12345678"
 																}`)
+	require.NoError(t, err)
 
 	// When
 	resp, _ := server.Test(req)
@@ -289,6 +335,11 @@ func TestUserHandlerUpdate_Successful(t *testing.T) {
 		Password:  "12345678",
 	}
 
+	authUser := &_jwtInfo{
+		ID:   userData.ID,
+		Name: fmt.Sprintf("%s %s", userData.FirstName, userData.LastName),
+	}
+
 	updatedUser := userData
 	updatedUser.LastName = "Second"
 
@@ -305,9 +356,10 @@ func TestUserHandlerUpdate_Successful(t *testing.T) {
 
 	server := createServer(usm)
 
-	req := createRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, userData.ID), `{
+	req, err := createRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, userData.ID), authUser, `{
 																	"last_name": "Second"
 																}`)
+	require.NoError(t, err)
 
 	// When
 	resp, err := server.Test(req)
@@ -332,7 +384,13 @@ func TestUserHandlerUpdate_FailsDueToInvalidIntParam(t *testing.T) {
 
 	server := createServer(usm)
 
-	req := createRequest(fiber.MethodPatch, fmt.Sprintf("%s/%s", _usersPath, "is_not_int"), "")
+	authUser := &_jwtInfo{
+		ID:   1,
+		Name: "Failed",
+	}
+
+	req, err := createRequest(fiber.MethodPatch, fmt.Sprintf("%s/%s", _usersPath, "is_not_int"), authUser, "")
+	require.NoError(t, err)
 
 	// When
 	resp, _ := server.Test(req)
@@ -352,16 +410,56 @@ func TestUserHandlerUpdate_FailsDueToInvalidIntParam(t *testing.T) {
 	require.Contains(t, response.Error, "invalid syntax")
 }
 
-func TestUserHandlerUpdate_FailsDueToObtainingUser(t *testing.T) {
+func TestUserHandlerUpdate_FailsDueToUnauthorizedUser(t *testing.T) {
 	// Given
-	expectedErr := errors.New("sql: no rows in result set")
+	expectedErr := errors.New("Updating not user resource")
 
 	usm := new(userServiceMock)
 	usm.On("Get", mock.Anything, 0).Return(domain.User{}, expectedErr)
 
 	server := createServer(usm)
 
-	req := createRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, 0), ``)
+	authUser := &_jwtInfo{
+		ID:   1,
+		Name: "Failed",
+	}
+
+	req, err := createRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, 0), authUser, ``)
+	require.NoError(t, err)
+
+	// When
+	resp, err := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusUnauthorized, resp.StatusCode)
+	require.NoError(t, err)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response errorResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.Equal(t, expectedErr.Error(), response.Error)
+}
+
+func TestUserHandlerUpdate_FailsDueToObtainingUser(t *testing.T) {
+	// Given
+	expectedErr := errors.New("sql: no rows in result set")
+
+	usm := new(userServiceMock)
+	usm.On("Get", mock.Anything, 1).Return(domain.User{}, expectedErr)
+
+	server := createServer(usm)
+
+	authUser := &_jwtInfo{
+		ID:   1,
+		Name: "Failed",
+	}
+
+	req, err := createRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, 1), authUser, ``)
+	require.NoError(t, err)
 
 	// When
 	resp, err := server.Test(req)
@@ -395,7 +493,13 @@ func TestUserHandlerUpdate_FailsDueToInvalidJSONBodyParse(t *testing.T) {
 
 	server := createServer(usm)
 
-	req := createRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, userData.ID), `{invalid_format}`)
+	authUser := &_jwtInfo{
+		ID:   1,
+		Name: "Failed",
+	}
+
+	req, err := createRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, userData.ID), authUser, `{invalid_format}`)
+	require.NoError(t, err)
 
 	// When
 	resp, _ := server.Test(req)
@@ -435,9 +539,15 @@ func TestUserHandlerUpdate_FailsDueToServiceError(t *testing.T) {
 
 	server := createServer(usm)
 
-	req := createRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, userData.ID), `{
+	authUser := &_jwtInfo{
+		ID:   1,
+		Name: "Failed",
+	}
+
+	req, err := createRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, userData.ID), authUser, `{
 																	"last_name": "Second"
 																}`)
+	require.NoError(t, err)
 
 	// When
 	resp, _ := server.Test(req)
@@ -465,7 +575,13 @@ func TestUserHandlerDelete_Successful(t *testing.T) {
 
 	server := createServer(usm)
 
-	req := createRequest(fiber.MethodDelete, fmt.Sprintf("%s/%d", _usersPath, expectedUserID), "")
+	authUser := &_jwtInfo{
+		ID:   1,
+		Name: "John Smith",
+	}
+
+	req, err := createRequest(fiber.MethodDelete, fmt.Sprintf("%s/%d", _usersPath, expectedUserID), authUser, "")
+	require.NoError(t, err)
 
 	// When
 	resp, err := server.Test(req)
@@ -481,7 +597,13 @@ func TestUserHandlerDelete_FailsDueToInvalidIntParam(t *testing.T) {
 
 	server := createServer(usm)
 
-	req := createRequest(fiber.MethodDelete, fmt.Sprintf("%s/%s", _usersPath, "is_not_int"), "")
+	authUser := &_jwtInfo{
+		ID:   1,
+		Name: "Failed",
+	}
+
+	req, err := createRequest(fiber.MethodDelete, fmt.Sprintf("%s/%s", _usersPath, "is_not_int"), authUser, "")
+	require.NoError(t, err)
 
 	// When
 	resp, _ := server.Test(req)
@@ -501,6 +623,40 @@ func TestUserHandlerDelete_FailsDueToInvalidIntParam(t *testing.T) {
 	require.Contains(t, response.Error, "invalid syntax")
 }
 
+func TestUserHandlerDelete_FailsDueToUnauthorizedUser(t *testing.T) {
+	// Given
+	expectedUserID := 1
+	expectedErr := errors.New("Updating not user resource")
+
+	usm := new(userServiceMock)
+	usm.On("Delete", mock.Anything, expectedUserID).Return(expectedErr)
+
+	server := createServer(usm)
+
+	authUser := &_jwtInfo{
+		ID:   1,
+		Name: "Failed",
+	}
+
+	req, err := createRequest(fiber.MethodDelete, fmt.Sprintf("%s/%d", _usersPath, 0), authUser, "")
+	require.NoError(t, err)
+
+	// When
+	resp, _ := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusUnauthorized, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response errorResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.Equal(t, expectedErr.Error(), response.Error)
+}
+
 func TestUserHandlerDelete_FailsDueToServiceError(t *testing.T) {
 	// Given
 	expectedUserID := 1
@@ -511,7 +667,13 @@ func TestUserHandlerDelete_FailsDueToServiceError(t *testing.T) {
 
 	server := createServer(usm)
 
-	req := createRequest(fiber.MethodDelete, fmt.Sprintf("%s/%s", _usersPath, "1"), "")
+	authUser := &_jwtInfo{
+		ID:   1,
+		Name: "Failed",
+	}
+
+	req, err := createRequest(fiber.MethodDelete, fmt.Sprintf("%s/%d", _usersPath, 1), authUser, "")
+	require.NoError(t, err)
 
 	// When
 	resp, _ := server.Test(req)

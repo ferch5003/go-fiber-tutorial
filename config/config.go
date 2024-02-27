@@ -7,6 +7,8 @@ import (
 )
 
 type EnvVars struct {
+	AppName       string
+	AppSecretKey  string
 	Host          string
 	Port          string
 	MySQLDSN      string
@@ -25,6 +27,8 @@ func NewConfigurations() (*EnvVars, error) {
 		return nil, err
 	}
 
+	appName := os.Getenv("APP_NAME")
+	appSecretKey := os.Getenv("APP_SECRET_KEY")
 	host := os.Getenv("HOST")
 	port := os.Getenv("PORT")
 	mySQLDSN := os.Getenv("MYSQL_DSN")
@@ -33,6 +37,8 @@ func NewConfigurations() (*EnvVars, error) {
 	mySQLDB := os.Getenv("MYSQL_DB")
 
 	environment := &EnvVars{
+		AppName:       appName,
+		AppSecretKey:  appSecretKey,
 		Host:          host,
 		Port:          port,
 		MySQLDSN:      mySQLDSN,

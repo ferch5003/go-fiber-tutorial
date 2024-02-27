@@ -1,6 +1,7 @@
 package router
 
 import (
+	"github.com/ferch5003/go-fiber-tutorial/config"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -10,13 +11,15 @@ type Router interface {
 
 type GeneralRouter struct {
 	App        fiber.Router
-	UserRouter Router
+	config     *config.EnvVars
+	userRouter Router
 }
 
-func NewRouter(fiber *fiber.App, userRouter Router) *GeneralRouter {
+func NewRouter(fiber *fiber.App, config *config.EnvVars, userRouter Router) *GeneralRouter {
 	return &GeneralRouter{
 		App:        fiber,
-		UserRouter: userRouter,
+		config:     config,
+		userRouter: userRouter,
 	}
 }
 
@@ -27,5 +30,5 @@ func (r *GeneralRouter) Register() {
 	})
 
 	// User Routes.
-	r.UserRouter.Register()
+	r.userRouter.Register()
 }
