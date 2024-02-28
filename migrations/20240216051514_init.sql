@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS todos (
    description TEXT,
    completed BOOLEAN NOT NULL DEFAULT FALSE,
    user_id INT NOT NULL,
-   KEY user_id_idx (user_id)
+   FOREIGN KEY (user_id)
+   REFERENCES users(id)
+   ON DELETE CASCADE
 );
 -- +goose StatementEnd
