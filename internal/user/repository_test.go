@@ -209,7 +209,7 @@ func TestRepositoryGetByEmail_FailsDueToInvalidGet(t *testing.T) {
 	repository := NewRepository(dbx)
 
 	// When
-	user, err := repository.Get(ctx, 0)
+	user, err := repository.GetByEmail(ctx, "")
 
 	// Then
 	require.Equal(t, expectedUser, user)
