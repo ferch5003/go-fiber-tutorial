@@ -160,6 +160,221 @@ func TestRepositoryGet_FailsDueToInvalidGet(t *testing.T) {
 	require.ErrorContains(t, err, "with expected regexp")
 }
 
+func TestRepositorySave_Successful(t *testing.T) {
+	// Given
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	ctx := context.Background()
+
+	expectedTodoID := 1
+	todo := domain.Todo{
+		Title:       "Lorem",
+		Description: "Ipsum",
+		UserID:      1,
+	}
+	mock.ExpectBegin()
+	mock.ExpectPrepare(`INSERT INTO todos`)
+	mock.ExpectExec(`INSERT INTO todos`).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	repository := NewRepository(dbx)
+
+	// When
+	todoID, err := repository.Save(ctx, todo)
+
+	// Then
+	require.NoError(t, err)
+	require.NotNil(t, todoID)
+	require.Equal(t, expectedTodoID, todoID)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestRepositorySave_FailsDueToInvalidBeginTransaction(t *testing.T) {
+	// Given
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	ctx := context.Background()
+
+	expectedTodoID := 0
+	todo := domain.Todo{
+		Title:       "Lorem",
+		Description: "Ipsum",
+		UserID:      1,
+	}
+
+	expectedError := errors.New("You have an error in your SQL syntax")
+
+	mock.ExpectBegin().WillReturnError(expectedError)
+
+	repository := NewRepository(dbx)
+
+	// When
+	todoID, err := repository.Save(ctx, todo)
+
+	// Then
+	require.Equal(t, expectedTodoID, todoID)
+	require.ErrorContains(t, err, "You have an error in your SQL syntax")
+}
+
+func TestRepositorySave_FailsDueToInvalidPreparation(t *testing.T) {
+	// Given
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	ctx := context.Background()
+
+	expectedTodoID := 0
+	todo := domain.Todo{
+		Title:       "Lorem",
+		Description: "Ipsum",
+		UserID:      1,
+	}
+	wrongQuery := regexp.QuoteMeta(`INSERT INTO todos (first_name, last_name, email, password)) VALUES ();`)
+	expectedError := errors.New(`Prepare: could not match actual sql: \"INSERT INTO todos (first_name, 
+										last_name, email, password) VALUES (?, ?, ?, ?);\" with expected 
+										regexp \"INSERT INTO todos \\(first_name, last_name, email, 
+										password\\)\\) VALUES \\(\\);\"`)
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(wrongQuery).WillReturnError(expectedError)
+
+	repository := NewRepository(dbx)
+
+	// When
+	todoID, err := repository.Save(ctx, todo)
+
+	// Then
+	require.Equal(t, expectedTodoID, todoID)
+	require.ErrorContains(t, err, "Prepare: could not match actual sql")
+	require.ErrorContains(t, err, "with expected regexp")
+}
+
+func TestRepositorySave_FailsDueToFailingExec(t *testing.T) {
+	// Given
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	ctx := context.Background()
+
+	expectedTodoID := 0
+	todo := domain.Todo{
+		Title:       "Lorem",
+		Description: "Ipsum",
+		UserID:      1,
+	}
+
+	expectedError := errors.New("Error Code: 1136. Column count doesn't match value count at row 1")
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(`INSERT INTO todos`)
+	mock.ExpectExec(`INSERT INTO todos`).WillReturnError(expectedError)
+	mock.ExpectRollback()
+
+	repository := NewRepository(dbx)
+
+	// When
+	todoID, err := repository.Save(ctx, todo)
+
+	// Then
+	require.Equal(t, expectedTodoID, todoID)
+	require.ErrorContains(t, err, "Error Code: 1136")
+	require.ErrorContains(t, err, "Column count doesn't match value count at row 1")
+}
+
+func TestRepositorySave_FailsDueToFailingExecWithFailingRollback(t *testing.T) {
+	// Given
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	ctx := context.Background()
+
+	expectedTodoID := 0
+	todo := domain.Todo{
+		Title:       "Lorem",
+		Description: "Ipsum",
+		UserID:      1,
+	}
+
+	expectedExecError := errors.New("Error Code: 1136. Column count doesn't match value count at row 1")
+	expectedRollbackError := fmt.Errorf("insert failed: %v, unable to back: %v",
+		expectedExecError, "Rollack error")
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(`INSERT INTO todos`)
+	mock.ExpectExec(`INSERT INTO todos`).WillReturnError(expectedExecError)
+	mock.ExpectRollback().WillReturnError(expectedRollbackError)
+
+	repository := NewRepository(dbx)
+
+	// When
+	todoID, err := repository.Save(ctx, todo)
+
+	// Then
+	require.Equal(t, expectedTodoID, todoID)
+	require.ErrorContains(t, err, "insert failed")
+	require.ErrorContains(t, err, "Error Code: 1136")
+	require.ErrorContains(t, err, "Column count doesn't match value count at row 1")
+	require.ErrorContains(t, err, "unable to back")
+	require.ErrorContains(t, err, "Rollack error")
+}
+
+func TestRepositorySave_FailsDueToFailingCommit(t *testing.T) {
+	// Given
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	ctx := context.Background()
+
+	expectedTodoID := 0
+	todo := domain.Todo{
+		Title:       "Lorem",
+		Description: "Ipsum",
+		UserID:      1,
+	}
+	expectedError := errors.New("sql: transaction has already been committed or rolled back")
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(`INSERT INTO todos`)
+	mock.ExpectExec(`INSERT INTO todos`).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit().WillReturnError(expectedError)
+
+	repository := NewRepository(dbx)
+
+	// When
+	todoID, err := repository.Save(ctx, todo)
+
+	// Then
+	require.Equal(t, expectedTodoID, todoID)
+	require.ErrorContains(t, err, "sql")
+	require.ErrorContains(t, err, "transaction has already been committed or rolled back")
+}
+
 func TestRepositoryCompleted_Successful(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()

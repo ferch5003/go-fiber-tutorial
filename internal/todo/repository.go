@@ -16,6 +16,8 @@ const (
 	_getTodoStmt = `SELECT id, title, description, completed 
 					FROM todos
 					WHERE id = ?;`
+	_saveTodoStmt = `INSERT INTO todos (title, description, user_id) 
+								VALUES (?, ?, ?);`
 	_updateTodoCompletedStmt = `UPDATE todos 
 								SET completed = true
 								WHERE id = ?;`
@@ -30,7 +32,7 @@ type Repository interface {
 	Get(ctx context.Context, id int) (domain.Todo, error)
 
 	// Save a new Todo into the database.
-	Save(ctx context.Context, userID int, todo domain.Todo) (int, error)
+	Save(ctx context.Context, todo domain.Todo) (int, error)
 
 	// Completed change the completed state to true.
 	Completed(ctx context.Context, id int) error
@@ -69,9 +71,40 @@ func (r repository) Get(ctx context.Context, id int) (domain.Todo, error) {
 	return todo, nil
 }
 
-func (r repository) Save(ctx context.Context, userID int, todo domain.Todo) (int, error) {
-	//TODO implement me
-	panic("implement me")
+func (r repository) Save(ctx context.Context, todo domain.Todo) (int, error) {
+	tx, err := r.conn.Beginx()
+	if err != nil {
+		return 0, err
+	}
+
+	stmt, err := tx.PreparexContext(ctx, _saveTodoStmt)
+	if err != nil {
+		return 0, err
+	}
+
+	defer func() {
+		err = stmt.Close()
+	}()
+
+	res, err := stmt.ExecContext(ctx, todo.Title, todo.Description, todo.UserID)
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return 0, rollbackErr
+		}
+
+		return 0, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return int(id), err
 }
 
 func (r repository) Completed(ctx context.Context, id int) error {
