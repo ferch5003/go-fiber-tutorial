@@ -116,7 +116,7 @@ func (r repository) Delete(ctx context.Context, id int) error {
 		return err
 	}
 
-	stmt, err := r.conn.PreparexContext(ctx, _deleteTodoStmt)
+	stmt, err := tx.PreparexContext(ctx, _deleteTodoStmt)
 	if err != nil {
 		return err
 	}
