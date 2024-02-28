@@ -18,7 +18,9 @@ var NewUserModule = fx.Module("user",
 	fx.Provide(handler.NewUserHandler),
 
 	// Register Router
-	fx.Provide(NewUserRouter),
+	fx.Provide(
+		NewUserRouter,
+	),
 )
 
 type userRouter struct {

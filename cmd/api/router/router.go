@@ -13,13 +13,15 @@ type GeneralRouter struct {
 	App        fiber.Router
 	config     *config.EnvVars
 	userRouter Router
+	todoRouter Router
 }
 
-func NewRouter(fiber *fiber.App, config *config.EnvVars, userRouter Router) *GeneralRouter {
+func NewRouter(fiber *fiber.App, config *config.EnvVars, userRouter, todoRouter Router) *GeneralRouter {
 	return &GeneralRouter{
 		App:        fiber,
 		config:     config,
 		userRouter: userRouter,
+		todoRouter: todoRouter,
 	}
 }
 
@@ -31,4 +33,7 @@ func (r *GeneralRouter) Register() {
 
 	// User Routes.
 	r.userRouter.Register()
+
+	// Todo Routes.
+	r.todoRouter.Register()
 }

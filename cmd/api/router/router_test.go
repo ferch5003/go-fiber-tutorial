@@ -14,11 +14,11 @@ var _testConfigs = &config.EnvVars{
 	AppSecretKey: "test",
 }
 
-type mockUserRouter struct {
+type mockRouter struct {
 	mock.Mock
 }
 
-func (m *mockUserRouter) Register() {
+func (m *mockRouter) Register() {
 	m.Called()
 }
 
@@ -26,10 +26,13 @@ func TestRegister_Successful(t *testing.T) {
 	// Given
 	app := fiber.New()
 
-	mur := new(mockUserRouter)
+	mur := new(mockRouter)
 	mur.On("Register")
 
-	router := NewRouter(app, _testConfigs, mur) // Always have the /health endpoint.
+	mtr := new(mockRouter)
+	mtr.On("Register")
+
+	router := NewRouter(app, _testConfigs, mur, mtr) // Always have the /health endpoint.
 	expectedRoute := "/health"
 	expectedStatusCode := fiber.StatusOK
 

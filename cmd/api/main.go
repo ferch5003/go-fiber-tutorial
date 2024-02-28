@@ -50,6 +50,7 @@ func main() {
 
 		// Provide modules
 		router.NewUserModule,
+		router.NewTodoModule,
 
 		// Provide seeders
 		fx.Provide(seeds.NewSeed),

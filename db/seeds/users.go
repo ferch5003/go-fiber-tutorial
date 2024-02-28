@@ -8,8 +8,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// UsersSeed seeds roles data.
-func (s Seed) UsersSeed() {
+// usersSeed seeds user data.
+func (s Seed) usersSeed() {
 	for range 5 {
 		var user domain.User
 		if err := gofakeit.Struct(&user); err != nil {
