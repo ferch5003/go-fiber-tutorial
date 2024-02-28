@@ -9,3 +9,6 @@ tmp
 # Environments
 .env
 .env.prod
+
+# Coverage
+profile.cov
