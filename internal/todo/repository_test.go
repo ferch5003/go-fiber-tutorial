@@ -160,6 +160,184 @@ func TestRepositoryGet_FailsDueToInvalidGet(t *testing.T) {
 	require.ErrorContains(t, err, "with expected regexp")
 }
 
+func TestRepositoryCompleted_Successful(t *testing.T) {
+	// Given
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	ctx := context.Background()
+
+	expectedUpdatedTodo := 1
+	mock.ExpectBegin()
+	mock.ExpectPrepare(`UPDATE todos`)
+	mock.ExpectExec(`UPDATE todos`).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	repository := NewRepository(dbx)
+
+	// When
+	err = repository.Completed(ctx, expectedUpdatedTodo)
+
+	// Then
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestRepositoryCompleted_FailsDueToInvalidBeginTransaction(t *testing.T) {
+	// Given
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	ctx := context.Background()
+
+	expectedUpdatedTodo := 1
+
+	expectedError := errors.New("You have an error in your SQL syntax")
+
+	mock.ExpectBegin().WillReturnError(expectedError)
+
+	repository := NewRepository(dbx)
+
+	// When
+	err = repository.Completed(ctx, expectedUpdatedTodo)
+
+	// Then
+	require.ErrorContains(t, err, "You have an error in your SQL syntax")
+}
+
+func TestRepositoryCompleted_FailsDueToInvalidPreparation(t *testing.T) {
+	// Given
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	ctx := context.Background()
+
+	expectedUpdatedTodo := 1
+	wrongQuery := regexp.QuoteMeta(`UPDATE todos SET  completed = true WHERE id = ??;`)
+	expectedError := errors.New(`Prepare: could not match actual sql: \"UPDATE todos 
+										SET completed = true
+										WHERE id = ?;\" with expected  regexp \"UPDATE todos 
+										SET completed = true WHERE id = ??;"`)
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(wrongQuery).WillReturnError(expectedError)
+
+	repository := NewRepository(dbx)
+
+	// When
+	err = repository.Completed(ctx, expectedUpdatedTodo)
+
+	// Then
+	require.ErrorContains(t, err, "Prepare: could not match actual sql")
+	require.ErrorContains(t, err, "with expected regexp")
+}
+
+func TestRepositoryCompleted_FailsDueToFailingExec(t *testing.T) {
+	// Given
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	ctx := context.Background()
+
+	expectedUpdatedTodo := 1
+
+	expectedError := errors.New("Error Code: 1136. Column count doesn't match value count at row 1")
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(`UPDATE todos`)
+	mock.ExpectExec(`UPDATE todos`).WillReturnError(expectedError)
+	mock.ExpectRollback()
+
+	repository := NewRepository(dbx)
+
+	// When
+	err = repository.Completed(ctx, expectedUpdatedTodo)
+
+	// Then
+	require.ErrorContains(t, err, "Error Code: 1136")
+	require.ErrorContains(t, err, "Column count doesn't match value count at row 1")
+}
+
+func TestRepositoryCompleted_FailsDueToFailingExecWithFailingRollback(t *testing.T) {
+	// Given
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	ctx := context.Background()
+
+	expectedUpdatedTodo := 1
+
+	expectedExecError := errors.New("Error Code: 1136. Column count doesn't match value count at row 1")
+	expectedRollbackError := fmt.Errorf("update failed: %v, unable to back: %v",
+		expectedExecError, "Rollack error")
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(`UPDATE todos`)
+	mock.ExpectExec(`UPDATE todos`).WillReturnError(expectedExecError)
+	mock.ExpectRollback().WillReturnError(expectedRollbackError)
+
+	repository := NewRepository(dbx)
+
+	// When
+	err = repository.Completed(ctx, expectedUpdatedTodo)
+
+	// Then
+	require.ErrorContains(t, err, "update failed")
+	require.ErrorContains(t, err, "Error Code: 1136")
+	require.ErrorContains(t, err, "Column count doesn't match value count at row 1")
+	require.ErrorContains(t, err, "unable to back")
+	require.ErrorContains(t, err, "Rollack error")
+}
+
+func TestRepositoryCompleted_FailsDueToFailingCommit(t *testing.T) {
+	// Given
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	ctx := context.Background()
+
+	expectedUpdatedTodo := 1
+	expectedError := errors.New("sql: transaction has already been committed or rolled back")
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(`UPDATE todos`)
+	mock.ExpectExec(`UPDATE todos`).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit().WillReturnError(expectedError)
+
+	repository := NewRepository(dbx)
+
+	// When
+	err = repository.Completed(ctx, expectedUpdatedTodo)
+
+	// Then
+	require.ErrorContains(t, err, "sql")
+	require.ErrorContains(t, err, "transaction has already been committed or rolled back")
+}
+
 func TestRepositoryDelete_Successful(t *testing.T) {
 	// Given
 	db, mock, err := sqlmock.New()

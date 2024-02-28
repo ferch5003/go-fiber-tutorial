@@ -16,6 +16,9 @@ const (
 	_getTodoStmt = `SELECT id, title, description, completed 
 					FROM todos
 					WHERE id = ?;`
+	_updateTodoCompletedStmt = `UPDATE todos 
+								SET completed = true
+								WHERE id = ?;`
 	_deleteTodoStmt = `DELETE FROM todos WHERE id = ?;`
 )
 
@@ -30,7 +33,7 @@ type Repository interface {
 	Save(ctx context.Context, userID int, todo domain.Todo) (int, error)
 
 	// Completed change the completed state to true.
-	Completed(ctx context.Context, userID, id int) error
+	Completed(ctx context.Context, id int) error
 
 	// Delete the Todo from the database.
 	Delete(ctx context.Context, id int) error
@@ -71,9 +74,40 @@ func (r repository) Save(ctx context.Context, userID int, todo domain.Todo) (int
 	panic("implement me")
 }
 
-func (r repository) Completed(ctx context.Context, userID, id int) error {
-	//TODO implement me
-	panic("implement me")
+func (r repository) Completed(ctx context.Context, id int) error {
+	tx, err := r.conn.Beginx()
+	if err != nil {
+		return err
+	}
+
+	stmt, err := tx.PreparexContext(ctx, _updateTodoCompletedStmt)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		err = stmt.Close()
+	}()
+
+	res, err := stmt.ExecContext(ctx, id)
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return rollbackErr
+		}
+
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	_, err = res.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	return err
 }
 
 func (r repository) Delete(ctx context.Context, id int) error {
