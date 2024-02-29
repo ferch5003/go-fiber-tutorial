@@ -9,7 +9,6 @@ import (
 	"github.com/ferch5003/go-fiber-tutorial/internal/platform/validations"
 	"github.com/ferch5003/go-fiber-tutorial/internal/user"
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v5"
 	"net/http"
 )
 
@@ -188,11 +187,14 @@ func (h *UserHandler) Update(c *fiber.Ctx) error {
 		})
 	}
 
-	protectedUser := c.Locals("user").(*jwt.Token)
-	claims := protectedUser.Claims.(jwt.MapClaims)
-	userID, ok := claims["sub"].(float64)
+	userID, err := getAuthUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
 
-	if !ok || id != int(userID) {
+	if id != userID {
 		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Updating not user resource",
 		})
@@ -246,11 +248,14 @@ func (h *UserHandler) Delete(c *fiber.Ctx) error {
 		})
 	}
 
-	protectedUser := c.Locals("user").(*jwt.Token)
-	claims := protectedUser.Claims.(jwt.MapClaims)
-	userID, ok := claims["sub"].(float64)
+	userID, err := getAuthUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
 
-	if !ok || id != int(userID) {
+	if id != userID {
 		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Updating not user resource",
 		})

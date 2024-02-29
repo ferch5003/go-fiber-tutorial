@@ -66,7 +66,7 @@ func (usm *userServiceMock) Delete(ctx context.Context, id int) error {
 	return args.Error(0)
 }
 
-func createServer(usm *userServiceMock) *fiber.App {
+func createUserServer(usm *userServiceMock) *fiber.App {
 	app := fiber.New()
 
 	userHandler := NewUserHandler(_testConfigs, usm)
@@ -85,7 +85,7 @@ func createServer(usm *userServiceMock) *fiber.App {
 	return app
 }
 
-func createRequest(method string, url string, userSession *_jwtInfo, body string) (*http.Request, error) {
+func createUserRequest(method string, url string, userSession *_jwtInfo, body string) (*http.Request, error) {
 	req := httptest.NewRequest(method, url, bytes.NewBuffer([]byte(body)))
 	req.Header.Add("Content-Type", "application/json")
 
@@ -119,9 +119,9 @@ func TestUserHandlerGet_Successful(t *testing.T) {
 	usm := new(userServiceMock)
 	usm.On("Get", mock.Anything, expectedUserID).Return(userData, nil)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
-	req, err := createRequest(
+	req, err := createUserRequest(
 		fiber.MethodGet,
 		fmt.Sprintf("%s/%d", _usersPath, expectedUserID),
 		nil,
@@ -149,9 +149,9 @@ func TestUserHandlerGet_FailsDueToInvalidIntParam(t *testing.T) {
 	// Given
 	usm := new(userServiceMock)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
-	req, err := createRequest(fiber.MethodGet, fmt.Sprintf("%s/%s", _usersPath, "is_not_int"), nil, "")
+	req, err := createUserRequest(fiber.MethodGet, fmt.Sprintf("%s/%s", _usersPath, "is_not_int"), nil, "")
 	require.NoError(t, err)
 
 	// When
@@ -180,9 +180,9 @@ func TestUserHandlerGet_FailsDueToServiceError(t *testing.T) {
 	usm := new(userServiceMock)
 	usm.On("Get", mock.Anything, expectedUserID).Return(domain.User{}, expectedErr)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
-	req, err := createRequest(fiber.MethodGet, fmt.Sprintf("%s/%s", _usersPath, "1"), nil, "")
+	req, err := createUserRequest(fiber.MethodGet, fmt.Sprintf("%s/%s", _usersPath, "1"), nil, "")
 	require.NoError(t, err)
 
 	// When
@@ -223,9 +223,9 @@ func TestUserHandlerRegisterUser_Successful(t *testing.T) {
 	usm := new(userServiceMock)
 	usm.On("Save", mock.Anything, mock.AnythingOfType("domain.User")).Return(savedUser, nil)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
-	req, err := createRequest(fiber.MethodPost, _usersPath+"/register", nil, `{
+	req, err := createUserRequest(fiber.MethodPost, _usersPath+"/register", nil, `{
 																	"first_name": "John",
 																	"last_name": "Smith",
 																	"email": "john@example.com",
@@ -258,9 +258,9 @@ func TestUserHandlerRegisterUser_FailsDueToInvalidJSONBodyParse(t *testing.T) {
 	// Given
 	usm := new(userServiceMock)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
-	req, err := createRequest(fiber.MethodPost, _usersPath+"/register", nil, `{invalid_format}`)
+	req, err := createUserRequest(fiber.MethodPost, _usersPath+"/register", nil, `{invalid_format}`)
 	require.NoError(t, err)
 
 	// When
@@ -284,9 +284,9 @@ func TestUserHandlerRegisterUser_FailsDueToValidations(t *testing.T) {
 	// Given
 	usm := new(userServiceMock)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
-	req, err := createRequest(fiber.MethodPost, _usersPath+"/register", nil, `{}`)
+	req, err := createUserRequest(fiber.MethodPost, _usersPath+"/register", nil, `{}`)
 	require.NoError(t, err)
 
 	// When
@@ -315,9 +315,9 @@ func TestUserHandlerRegisterUser_FailsDueToServiceError(t *testing.T) {
 	usm := new(userServiceMock)
 	usm.On("Save", mock.Anything, mock.AnythingOfType("domain.User")).Return(domain.User{}, expectedError)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
-	req, err := createRequest(fiber.MethodPost, _usersPath+"/register", nil, `{
+	req, err := createUserRequest(fiber.MethodPost, _usersPath+"/register", nil, `{
 																	"first_name": "John",
 																	"last_name": "Smith",
 																	"email": "john@example.com",
@@ -356,9 +356,9 @@ func TestUserHandlerRegisterUser_FailsDueToLongPasswordToHash(t *testing.T) {
 
 	usm := new(userServiceMock)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
-	req, err := createRequest(fiber.MethodPost, _usersPath+"/register", nil, fmt.Sprintf(`{
+	req, err := createUserRequest(fiber.MethodPost, _usersPath+"/register", nil, fmt.Sprintf(`{
 																	"first_name": "John",
 																	"last_name": "Smith",
 																	"email": "john@example.com",
@@ -408,9 +408,9 @@ func TestUserHandlerLoginUser_Successful(t *testing.T) {
 	usm := new(userServiceMock)
 	usm.On("GetByEmail", mock.Anything, userData.Email).Return(loggedUser, nil)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
-	req, err := createRequest(fiber.MethodPost, _usersPath+"/login", nil, `{
+	req, err := createUserRequest(fiber.MethodPost, _usersPath+"/login", nil, `{
 																	"email": "john@example.com",
 																	"password": "12345678"
 																}`)
@@ -441,9 +441,9 @@ func TestUserHandlerLoginUser_FailsDueToInvalidJSONBodyParse(t *testing.T) {
 	// Given
 	usm := new(userServiceMock)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
-	req, err := createRequest(fiber.MethodPost, _usersPath+"/login", nil, `{invalid_format}`)
+	req, err := createUserRequest(fiber.MethodPost, _usersPath+"/login", nil, `{invalid_format}`)
 	require.NoError(t, err)
 
 	// When
@@ -467,9 +467,9 @@ func TestUserHandlerLoginUser_FailsDueToValidations(t *testing.T) {
 	// Given
 	usm := new(userServiceMock)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
-	req, err := createRequest(fiber.MethodPost, _usersPath+"/login", nil, `{}`)
+	req, err := createUserRequest(fiber.MethodPost, _usersPath+"/login", nil, `{}`)
 	require.NoError(t, err)
 
 	// When
@@ -503,9 +503,9 @@ func TestUserHandlerLoginUser_FailsDueToServiceError(t *testing.T) {
 	usm := new(userServiceMock)
 	usm.On("GetByEmail", mock.Anything, userData.Email).Return(domain.User{}, expectedError)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
-	req, err := createRequest(fiber.MethodPost, _usersPath+"/login", nil, `{
+	req, err := createUserRequest(fiber.MethodPost, _usersPath+"/login", nil, `{
 																	"email": "john@example.com",
 																	"password": "12345678"
 																}`)
@@ -545,9 +545,9 @@ func TestUserHandlerLoginUser_FailsDueToInvalidCredentials(t *testing.T) {
 	usm := new(userServiceMock)
 	usm.On("GetByEmail", mock.Anything, userData.Email).Return(loggedUser, nil)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
-	req, err := createRequest(fiber.MethodPost, _usersPath+"/login", nil, `{
+	req, err := createUserRequest(fiber.MethodPost, _usersPath+"/login", nil, `{
 																	"email": "john@example.com",
 																	"password": "bad_password"
 																}`)
@@ -598,9 +598,9 @@ func TestUserHandlerUpdate_Successful(t *testing.T) {
 	usm.On("Get", mock.Anything, userData.ID).Return(userData, nil)
 	usm.On("Update", mock.Anything, updatedUser).Return(updatedUser, nil)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
-	req, err := createRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, userData.ID), authUser, `{
+	req, err := createUserRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, userData.ID), authUser, `{
 																	"last_name": "Second"
 																}`)
 	require.NoError(t, err)
@@ -626,14 +626,14 @@ func TestUserHandlerUpdate_FailsDueToInvalidIntParam(t *testing.T) {
 	// Given
 	usm := new(userServiceMock)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
 	authUser := &_jwtInfo{
 		ID:   1,
 		Name: "Failed",
 	}
 
-	req, err := createRequest(fiber.MethodPatch, fmt.Sprintf("%s/%s", _usersPath, "is_not_int"), authUser, "")
+	req, err := createUserRequest(fiber.MethodPatch, fmt.Sprintf("%s/%s", _usersPath, "is_not_int"), authUser, "")
 	require.NoError(t, err)
 
 	// When
@@ -661,14 +661,14 @@ func TestUserHandlerUpdate_FailsDueToUnauthorizedUser(t *testing.T) {
 	usm := new(userServiceMock)
 	usm.On("Get", mock.Anything, 0).Return(domain.User{}, expectedErr)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
 	authUser := &_jwtInfo{
 		ID:   1,
 		Name: "Failed",
 	}
 
-	req, err := createRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, 0), authUser, ``)
+	req, err := createUserRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, 0), authUser, ``)
 	require.NoError(t, err)
 
 	// When
@@ -695,14 +695,14 @@ func TestUserHandlerUpdate_FailsDueToObtainingUser(t *testing.T) {
 	usm := new(userServiceMock)
 	usm.On("Get", mock.Anything, 1).Return(domain.User{}, expectedErr)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
 	authUser := &_jwtInfo{
 		ID:   1,
 		Name: "Failed",
 	}
 
-	req, err := createRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, 1), authUser, ``)
+	req, err := createUserRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, 1), authUser, ``)
 	require.NoError(t, err)
 
 	// When
@@ -735,14 +735,14 @@ func TestUserHandlerUpdate_FailsDueToInvalidJSONBodyParse(t *testing.T) {
 	usm := new(userServiceMock)
 	usm.On("Get", mock.Anything, userData.ID).Return(userData, nil)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
 	authUser := &_jwtInfo{
 		ID:   1,
 		Name: "Failed",
 	}
 
-	req, err := createRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, userData.ID), authUser, `{invalid_format}`)
+	req, err := createUserRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, userData.ID), authUser, `{invalid_format}`)
 	require.NoError(t, err)
 
 	// When
@@ -775,14 +775,14 @@ func TestUserHandlerUpdate_FailsDueToIValidations(t *testing.T) {
 	usm := new(userServiceMock)
 	usm.On("Get", mock.Anything, userData.ID).Return(userData, nil)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
 	authUser := &_jwtInfo{
 		ID:   1,
 		Name: "Failed",
 	}
 
-	req, err := createRequest(
+	req, err := createUserRequest(
 		fiber.MethodPatch,
 		fmt.Sprintf("%s/%d", _usersPath, userData.ID),
 		authUser,
@@ -830,14 +830,14 @@ func TestUserHandlerUpdate_FailsDueToServiceError(t *testing.T) {
 	usm.On("Get", mock.Anything, userData.ID).Return(userData, nil)
 	usm.On("Update", mock.Anything, updatedUser).Return(domain.User{}, expectedError)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
 	authUser := &_jwtInfo{
 		ID:   1,
 		Name: "Failed",
 	}
 
-	req, err := createRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, userData.ID), authUser, `{
+	req, err := createUserRequest(fiber.MethodPatch, fmt.Sprintf("%s/%d", _usersPath, userData.ID), authUser, `{
 																	"last_name": "Second"
 																}`)
 	require.NoError(t, err)
@@ -866,14 +866,14 @@ func TestUserHandlerDelete_Successful(t *testing.T) {
 	usm := new(userServiceMock)
 	usm.On("Delete", mock.Anything, expectedUserID).Return(nil)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
 	authUser := &_jwtInfo{
 		ID:   1,
 		Name: "John Smith",
 	}
 
-	req, err := createRequest(fiber.MethodDelete, fmt.Sprintf("%s/%d", _usersPath, expectedUserID), authUser, "")
+	req, err := createUserRequest(fiber.MethodDelete, fmt.Sprintf("%s/%d", _usersPath, expectedUserID), authUser, "")
 	require.NoError(t, err)
 
 	// When
@@ -888,14 +888,14 @@ func TestUserHandlerDelete_FailsDueToInvalidIntParam(t *testing.T) {
 	// Given
 	usm := new(userServiceMock)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
 	authUser := &_jwtInfo{
 		ID:   1,
 		Name: "Failed",
 	}
 
-	req, err := createRequest(fiber.MethodDelete, fmt.Sprintf("%s/%s", _usersPath, "is_not_int"), authUser, "")
+	req, err := createUserRequest(fiber.MethodDelete, fmt.Sprintf("%s/%s", _usersPath, "is_not_int"), authUser, "")
 	require.NoError(t, err)
 
 	// When
@@ -924,14 +924,14 @@ func TestUserHandlerDelete_FailsDueToUnauthorizedUser(t *testing.T) {
 	usm := new(userServiceMock)
 	usm.On("Delete", mock.Anything, expectedUserID).Return(expectedErr)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
 	authUser := &_jwtInfo{
 		ID:   1,
 		Name: "Failed",
 	}
 
-	req, err := createRequest(fiber.MethodDelete, fmt.Sprintf("%s/%d", _usersPath, 0), authUser, "")
+	req, err := createUserRequest(fiber.MethodDelete, fmt.Sprintf("%s/%d", _usersPath, 0), authUser, "")
 	require.NoError(t, err)
 
 	// When
@@ -958,14 +958,14 @@ func TestUserHandlerDelete_FailsDueToServiceError(t *testing.T) {
 	usm := new(userServiceMock)
 	usm.On("Delete", mock.Anything, expectedUserID).Return(expectedErr)
 
-	server := createServer(usm)
+	server := createUserServer(usm)
 
 	authUser := &_jwtInfo{
 		ID:   1,
 		Name: "Failed",
 	}
 
-	req, err := createRequest(fiber.MethodDelete, fmt.Sprintf("%s/%d", _usersPath, 1), authUser, "")
+	req, err := createUserRequest(fiber.MethodDelete, fmt.Sprintf("%s/%d", _usersPath, 1), authUser, "")
 	require.NoError(t, err)
 
 	// When
