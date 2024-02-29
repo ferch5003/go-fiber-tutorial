@@ -58,6 +58,7 @@ func createTodoServer(tsm *todoServiceMock) *fiber.App {
 		protectedRoutes := api.Group("", middlewares.JWTMiddleware(_testSessionConfigs.Secret))
 		protectedRoutes.Get("/", todoHandler.GetAll).Name("get_all")
 		protectedRoutes.Get("/:id", todoHandler.Get).Name("get")
+		protectedRoutes.Post("/", todoHandler.Save).Name("save")
 	}, "todos.")
 
 	return app
@@ -290,4 +291,144 @@ func TestTodoHandlerGet_FailsDueToServiceError(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, expectedErr.Error(), response.Error)
+}
+
+func TestTodoHandlerSave_Successful(t *testing.T) {
+	// Given
+	expectedUserID := 1
+	todoData := domain.Todo{
+		Title:       "Lorem",
+		Description: "Ipsum",
+		Completed:   false,
+		UserID:      expectedUserID,
+	}
+
+	expectedTodo := todoData
+	expectedTodo.ID = 1
+
+	tsm := new(todoServiceMock)
+	tsm.On("Save", mock.Anything, todoData).Return(expectedTodo, nil)
+
+	server := createTodoServer(tsm)
+
+	req, err := createTodoRequest(
+		fiber.MethodPost,
+		_todosPath,
+		true,
+		`{
+					"title": "Lorem",
+					"description": "Ipsum"
+					}`)
+	require.NoError(t, err)
+
+	// When
+	resp, err := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusCreated, resp.StatusCode)
+	require.NoError(t, err)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var showedTodo domain.Todo
+	err = json.Unmarshal(body, &showedTodo)
+	require.NoError(t, err)
+
+	require.EqualValues(t, expectedTodo, showedTodo)
+}
+
+func TestTodoHandlerSave_FailsDueToInvalidJSONBodyParse(t *testing.T) {
+	// Given
+	tsm := new(todoServiceMock)
+
+	server := createTodoServer(tsm)
+
+	req, err := createTodoRequest(
+		fiber.MethodPost,
+		_todosPath,
+		true,
+		`{invalid_format}`)
+	require.NoError(t, err)
+
+	// When
+	resp, _ := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response errorResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.Contains(t, response.Error, "invalid character 'i'")
+	require.Contains(t, response.Error, "looking for beginning of object key string")
+}
+
+func TestTodoHandlerSave_FailsDueToValidations(t *testing.T) {
+	// Given
+	tsm := new(todoServiceMock)
+
+	server := createTodoServer(tsm)
+
+	req, err := createTodoRequest(fiber.MethodPost,
+		_todosPath,
+		true,
+		`{}`)
+	require.NoError(t, err)
+
+	// When
+	resp, _ := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response errorResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.Contains(t, response.Error, "[Title]: '' | Needs to implement 'required'")
+	require.Contains(t, response.Error, "[Description]: '' | Needs to implement 'required'")
+}
+
+func TestTodoHandlerSave_FailsDueToServiceError(t *testing.T) {
+	// Given
+	expectedError := errors.New("Error Code: 1136. Column count doesn't match value count at row 1")
+
+	tsm := new(todoServiceMock)
+	tsm.On("Save", mock.Anything, mock.AnythingOfType("domain.Todo")).Return(domain.Todo{}, expectedError)
+
+	server := createTodoServer(tsm)
+
+	req, err := createTodoRequest(
+		fiber.MethodPost,
+		_todosPath,
+		true,
+		`{
+					"title": "Lorem",
+					"description": "Ipsum"
+					}`)
+	require.NoError(t, err)
+
+	// When
+	resp, _ := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusUnprocessableEntity, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response errorResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.Contains(t, response.Error, "Error Code: 1136")
+	require.Contains(t, response.Error, "Column count doesn't match value count at row 1")
 }

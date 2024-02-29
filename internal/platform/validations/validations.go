@@ -25,7 +25,7 @@ func NewValidator() *XValidator {
 	}
 }
 
-func (v XValidator) validate(data interface{}) []ErrorResponse {
+func (v XValidator) validate(data any) []ErrorResponse {
 	var validationErrors []ErrorResponse
 
 	errs := v.validator.Struct(data)
