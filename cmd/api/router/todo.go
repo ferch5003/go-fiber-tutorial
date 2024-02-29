@@ -45,5 +45,6 @@ func (t todoRouter) Register() {
 		// Using JWT Middleware.
 		protectedRoutes := api.Group("", middlewares.JWTMiddleware(t.config.AppSecretKey))
 		protectedRoutes.Get("/", t.Handler.GetAll).Name("get_all")
+		protectedRoutes.Get("/:id<int>", t.Handler.Get).Name("get")
 	}, "todos.")
 }

@@ -51,12 +51,13 @@ func (tsm *todoServiceMock) Delete(ctx context.Context, id int) error {
 func createTodoServer(tsm *todoServiceMock) *fiber.App {
 	app := fiber.New()
 
-	userHandler := NewTodoHandler(tsm)
+	todoHandler := NewTodoHandler(tsm)
 
 	app.Route("/todos", func(api fiber.Router) {
 		// Using JWT Middleware.
 		protectedRoutes := api.Group("", middlewares.JWTMiddleware(_testSessionConfigs.Secret))
-		protectedRoutes.Get("/", userHandler.GetAll).Name("get_all")
+		protectedRoutes.Get("/", todoHandler.GetAll).Name("get_all")
+		protectedRoutes.Get("/:id", todoHandler.Get).Name("get")
 	}, "todos.")
 
 	return app
@@ -167,6 +168,110 @@ func TestTodoHandlerGetAll_FailsDueToServiceError(t *testing.T) {
 	req, err := createTodoRequest(
 		fiber.MethodGet,
 		_todosPath,
+		true,
+		"")
+	require.NoError(t, err)
+
+	// When
+	resp, _ := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response errorResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.Equal(t, expectedErr.Error(), response.Error)
+}
+
+func TestTodoHandlerGet_Successful(t *testing.T) {
+	// Given
+	expectedUserID := 1
+	expectedTodo := domain.Todo{
+		ID:          1,
+		Title:       "Lorem",
+		Description: "Ipsum",
+		Completed:   false,
+		UserID:      expectedUserID,
+	}
+
+	tsm := new(todoServiceMock)
+	tsm.On("Get", mock.Anything, expectedTodo.ID).Return(expectedTodo, nil)
+
+	server := createTodoServer(tsm)
+
+	req, err := createTodoRequest(
+		fiber.MethodGet,
+		fmt.Sprintf("%s/%d", _todosPath, expectedTodo.ID),
+		true,
+		"")
+	require.NoError(t, err)
+
+	// When
+	resp, err := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+	require.NoError(t, err)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var todoData domain.Todo
+	err = json.Unmarshal(body, &todoData)
+	require.NoError(t, err)
+
+	require.EqualValues(t, expectedTodo, todoData)
+}
+
+func TestTodoHandlerGet_FailsDueToInvalidIntParam(t *testing.T) {
+	// Given
+	tsm := new(todoServiceMock)
+
+	server := createTodoServer(tsm)
+
+	req, err := createTodoRequest(
+		fiber.MethodGet,
+		fmt.Sprintf("%s/%s", _todosPath, "is_not_int"),
+		true,
+		"")
+	require.NoError(t, err)
+
+	// When
+	resp, _ := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response errorResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.Contains(t, response.Error, "failed to convert")
+	require.Contains(t, response.Error, "parsing \"is_not_int\"")
+	require.Contains(t, response.Error, "invalid syntax")
+}
+
+func TestTodoHandlerGet_FailsDueToServiceError(t *testing.T) {
+	// Given
+	expectedTodoID := 1
+	expectedErr := errors.New("sql: no rows in result set")
+
+	tsm := new(todoServiceMock)
+	tsm.On("Get", mock.Anything, expectedTodoID).Return(domain.Todo{}, expectedErr)
+
+	server := createTodoServer(tsm)
+
+	req, err := createTodoRequest(
+		fiber.MethodGet,
+		fmt.Sprintf("%s/%s", _todosPath, "1"),
 		true,
 		"")
 	require.NoError(t, err)
