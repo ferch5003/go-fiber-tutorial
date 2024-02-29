@@ -11,6 +11,10 @@ type errorResponse struct {
 	Error string `json:"error"`
 }
 
+type messageResponse struct {
+	Message string `json:"message"`
+}
+
 // get token user session
 func getTestUserSession() (string, error) {
 	token, err := jwtauth.GenerateToken(1, "test", *_testSessionConfigs)

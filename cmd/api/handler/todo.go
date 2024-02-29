@@ -91,3 +91,42 @@ func (h *TodoHandler) Save(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusCreated).JSON(savedTodo)
 }
+
+func (h *TodoHandler) Completed(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	obtainedTodo, err := h.service.Get(c.Context(), id)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	userID, err := getAuthUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	if obtainedTodo.UserID != userID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "This todo is not from this user",
+		})
+	}
+
+	if err := h.service.Completed(c.Context(), id); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Updated successfully",
+	})
+}

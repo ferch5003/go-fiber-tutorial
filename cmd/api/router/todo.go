@@ -47,5 +47,6 @@ func (t todoRouter) Register() {
 		protectedRoutes.Get("/", t.Handler.GetAll).Name("get_all")
 		protectedRoutes.Get("/:id<int>", t.Handler.Get).Name("get")
 		protectedRoutes.Post("/:id<int>", t.Handler.Save).Name("save")
+		protectedRoutes.Patch("/:id<int>/complete", t.Handler.Completed).Name("completed")
 	}, "todos.")
 }
