@@ -1,7 +1,9 @@
 package router
 
 import (
+	"github.com/ferch5003/go-fiber-tutorial/cmd/api/handler"
 	"github.com/ferch5003/go-fiber-tutorial/config"
+	"github.com/ferch5003/go-fiber-tutorial/internal/middlewares"
 	"github.com/ferch5003/go-fiber-tutorial/internal/todo"
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/fx"
@@ -12,29 +14,36 @@ var NewTodoModule = fx.Module("todo",
 	fx.Provide(todo.NewRepository),
 	fx.Provide(todo.NewService),
 
+	// Register Handler
+	fx.Provide(handler.NewTodoHandler),
+
 	// Register Router
 	fx.Provide(
 		fx.Annotate(
 			NewTodoRouter,
-			fx.As(new(Router)),
 			fx.ResultTags(`group:"routers"`),
 		),
 	),
 )
 
 type todoRouter struct {
-	App    fiber.Router
-	config *config.EnvVars
+	App     fiber.Router
+	config  *config.EnvVars
+	Handler *handler.TodoHandler
 }
 
-func NewTodoRouter(app *fiber.App, config *config.EnvVars) Router {
+func NewTodoRouter(app *fiber.App, config *config.EnvVars, todoHandler *handler.TodoHandler) Router {
 	return &todoRouter{
-		App:    app,
-		config: config,
+		App:     app,
+		config:  config,
+		Handler: todoHandler,
 	}
 }
 
 func (t todoRouter) Register() {
 	t.App.Route("/todos", func(api fiber.Router) {
+		// Using JWT Middleware.
+		protectedRoutes := api.Group("", middlewares.JWTMiddleware(t.config.AppSecretKey))
+		protectedRoutes.Get("/", t.Handler.GetAll).Name("get_all")
 	}, "todos.")
 }

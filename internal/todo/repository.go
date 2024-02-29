@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	_getAllTodosStmt = `SELECT id, title, description, completed 
+	_getAllTodosStmt = `SELECT todos.id, todos.title, todos.description, todos.completed, todos.user_id 
 						FROM todos
 						INNER JOIN users ON
 						users.id = todos.user_id

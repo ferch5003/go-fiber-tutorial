@@ -27,15 +27,9 @@ var _testConfigs = &config.EnvVars{
 	AppSecretKey: "test",
 }
 
-var _testSessionConfigs *jwtauth.Config
-
 type _jwtInfo struct {
 	ID   int
 	Name string
-}
-
-type errorResponse struct {
-	Error string `json:"error"`
 }
 
 type userServiceMock struct {
@@ -76,11 +70,6 @@ func createServer(usm *userServiceMock) *fiber.App {
 	app := fiber.New()
 
 	userHandler := NewUserHandler(_testConfigs, usm)
-
-	_testSessionConfigs = &jwtauth.Config{
-		AppName: _testConfigs.AppName,
-		Secret:  _testConfigs.AppSecretKey,
-	}
 
 	app.Route("/users", func(api fiber.Router) {
 		api.Get("/:id", userHandler.Get).Name("get")

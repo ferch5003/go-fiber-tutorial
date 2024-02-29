@@ -36,7 +36,15 @@ func main() {
 		// creates: *bootstrap.Server
 		fx.Supply(server),
 		// creates: *fiber.Router
-		fx.Provide(router.NewRouter),
+		fx.Provide(
+			fx.Annotate(
+				router.NewRouter,
+				fx.ParamTags( // Equivalent to *fiber.App, config.Envars, []Router `group:"routers"` in constructor
+					``,
+					``,
+					`group:"routers"`),
+			),
+		),
 		// creates: *fiber.App
 		fx.Provide(bootstrap.NewFiberServer),
 		// creates: context.Context

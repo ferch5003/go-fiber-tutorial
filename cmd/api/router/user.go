@@ -14,12 +14,15 @@ var NewUserModule = fx.Module("user",
 	fx.Provide(user.NewRepository),
 	fx.Provide(user.NewService),
 
-	// Register Controller
+	// Register Handler
 	fx.Provide(handler.NewUserHandler),
 
 	// Register Router
 	fx.Provide(
-		NewUserRouter,
+		fx.Annotate(
+			NewUserRouter,
+			fx.ResultTags(`group:"routers"`),
+		),
 	),
 )
 

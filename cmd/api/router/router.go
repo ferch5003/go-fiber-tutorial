@@ -10,18 +10,16 @@ type Router interface {
 }
 
 type GeneralRouter struct {
-	App        fiber.Router
-	config     *config.EnvVars
-	userRouter Router
-	todoRouter Router
+	App     fiber.Router
+	config  *config.EnvVars
+	routers []Router
 }
 
-func NewRouter(fiber *fiber.App, config *config.EnvVars, userRouter, todoRouter Router) *GeneralRouter {
+func NewRouter(fiber *fiber.App, config *config.EnvVars, routers ...Router) *GeneralRouter {
 	return &GeneralRouter{
-		App:        fiber,
-		config:     config,
-		userRouter: userRouter,
-		todoRouter: todoRouter,
+		App:     fiber,
+		config:  config,
+		routers: routers,
 	}
 }
 
@@ -31,9 +29,7 @@ func (r *GeneralRouter) Register() {
 		return c.SendString("Application is working correctly! 👋")
 	})
 
-	// User Routes.
-	r.userRouter.Register()
-
-	// Todo Routes.
-	r.todoRouter.Register()
+	for _, router := range r.routers {
+		router.Register()
+	}
 }
