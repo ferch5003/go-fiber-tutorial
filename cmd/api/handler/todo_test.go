@@ -60,6 +60,7 @@ func createTodoServer(tsm *todoServiceMock) *fiber.App {
 		protectedRoutes.Get("/:id", todoHandler.Get).Name("get")
 		protectedRoutes.Post("/", todoHandler.Save).Name("save")
 		protectedRoutes.Patch("/:id/complete", todoHandler.Completed).Name("completed")
+		protectedRoutes.Delete("/:id", todoHandler.Delete).Name("delete")
 	}, "todos.")
 
 	return app
@@ -618,4 +619,189 @@ func TestTodoHandlerCompleted_FailsDueToServiceError(t *testing.T) {
 
 	require.Contains(t, response.Error, "Error Code: 1136")
 	require.Contains(t, response.Error, "Column count doesn't match value count at row 1")
+}
+
+func TestTodoHandlerDelete_Successful(t *testing.T) {
+	// Given
+	todoData := domain.Todo{
+		ID:          1,
+		Title:       "Lorem",
+		Description: "Ipsum",
+		Completed:   false,
+		UserID:      1,
+	}
+
+	tsm := new(todoServiceMock)
+	tsm.On("Get", mock.Anything, todoData.ID).Return(todoData, nil)
+	tsm.On("Delete", mock.Anything, todoData.ID).Return(nil)
+
+	server := createTodoServer(tsm)
+
+	req, err := createTodoRequest(
+		fiber.MethodDelete,
+		fmt.Sprintf("%s/%d", _todosPath, todoData.ID),
+		true,
+		`{}`)
+	require.NoError(t, err)
+
+	// When
+	resp, err := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+	require.NoError(t, err)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response messageResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.Contains(t, response.Message, "Todo deleted successfully")
+}
+
+func TestTodoHandlerDelete_FailsDueToInvalidIntParam(t *testing.T) {
+	// Given
+	tsm := new(todoServiceMock)
+
+	server := createTodoServer(tsm)
+
+	req, err := createTodoRequest(
+		fiber.MethodDelete,
+		fmt.Sprintf("%s/%s", _todosPath, "is_not_int"),
+		true,
+		`{}`)
+	require.NoError(t, err)
+
+	// When
+	resp, _ := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response errorResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.Contains(t, response.Error, "failed to convert")
+	require.Contains(t, response.Error, "parsing \"is_not_int\"")
+	require.Contains(t, response.Error, "invalid syntax")
+}
+
+func TestTodoHandlerDelete_FailsDueToObtainingTodo(t *testing.T) {
+	// Given
+	expectedTodoID := 1
+	expectedErr := errors.New("sql: no rows in result set")
+
+	tsm := new(todoServiceMock)
+	tsm.On("Get", mock.Anything, expectedTodoID).Return(domain.Todo{}, expectedErr)
+
+	server := createTodoServer(tsm)
+
+	req, err := createTodoRequest(
+		fiber.MethodDelete,
+		fmt.Sprintf("%s/%d", _todosPath, expectedTodoID),
+		true,
+		`{}`)
+	require.NoError(t, err)
+
+	// When
+	resp, err := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
+	require.NoError(t, err)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response errorResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.Equal(t, expectedErr.Error(), response.Error)
+}
+
+func TestTodoHandlerDelete_FailsDueToUserNotRelatedTodo(t *testing.T) {
+	// Given
+	todoData := domain.Todo{
+		ID:          1,
+		Title:       "Lorem",
+		Description: "Scala",
+		Completed:   false,
+		UserID:      2,
+	}
+
+	tsm := new(todoServiceMock)
+	tsm.On("Get", mock.Anything, todoData.ID).Return(todoData, nil)
+
+	server := createTodoServer(tsm)
+
+	req, err := createTodoRequest(
+		fiber.MethodDelete,
+		fmt.Sprintf("%s/%d", _todosPath, todoData.ID),
+		true,
+		`{}`)
+	require.NoError(t, err)
+
+	// When
+	resp, err := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusForbidden, resp.StatusCode)
+	require.NoError(t, err)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response errorResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.Contains(t, response.Error, "This todo is not from this user")
+}
+
+func TestTodoHandlerDelete_FailsDueToServiceError(t *testing.T) {
+	// Given
+	todoData := domain.Todo{
+		ID:          1,
+		Title:       "Lorem",
+		Description: "Ipsum",
+		Completed:   false,
+		UserID:      1,
+	}
+
+	expectedError := errors.New("no rows affected")
+
+	tsm := new(todoServiceMock)
+	tsm.On("Get", mock.Anything, todoData.ID).Return(todoData, nil)
+	tsm.On("Delete", mock.Anything, todoData.ID).Return(expectedError)
+
+	server := createTodoServer(tsm)
+
+	req, err := createTodoRequest(
+		fiber.MethodDelete,
+		fmt.Sprintf("%s/%d", _todosPath, todoData.ID),
+		true,
+		`{}`)
+	require.NoError(t, err)
+
+	// When
+	resp, _ := server.Test(req)
+
+	// Then
+	require.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var response errorResponse
+	err = json.Unmarshal(body, &response)
+	require.NoError(t, err)
+
+	require.Equal(t, expectedError.Error(), response.Error)
 }
