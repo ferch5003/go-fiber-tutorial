@@ -13,7 +13,7 @@ const (
 						INNER JOIN users ON
 						users.id = todos.user_id
 						WHERE user_id = ?;`
-	_getTodoStmt = `SELECT id, title, description, completed 
+	_getTodoStmt = `SELECT id, title, description, completed, user_id 
 					FROM todos
 					WHERE id = ?;`
 	_saveTodoStmt = `INSERT INTO todos (title, description, user_id) 

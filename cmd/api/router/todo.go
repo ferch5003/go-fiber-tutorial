@@ -46,8 +46,8 @@ func (t todoRouter) Register() {
 		protectedRoutes := api.Group("", middlewares.JWTMiddleware(t.config.AppSecretKey))
 		protectedRoutes.Get("/", t.Handler.GetAll).Name("get_all")
 		protectedRoutes.Get("/:id<int>", t.Handler.Get).Name("get")
-		protectedRoutes.Post("/:id<int>", t.Handler.Save).Name("save")
+		protectedRoutes.Post("/", t.Handler.Save).Name("save")
 		protectedRoutes.Patch("/:id<int>/complete", t.Handler.Completed).Name("completed")
-		protectedRoutes.Delete("/:id<int>", t.Handler.Completed).Name("delete")
+		protectedRoutes.Delete("/:id<int>", t.Handler.Delete).Name("delete")
 	}, "todos.")
 }

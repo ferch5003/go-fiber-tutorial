@@ -23,7 +23,7 @@ func main() {
 	mysqlCtx := context.Background()
 	mySQLContainer := mysql.NewMySQLContainer(mysqlCtx)
 	cmd := console.NewConsole()
-	logger, err := zap.NewDevelopment()
+	logger, err := zap.NewProduction()
 	if err != nil {
 		panic(err)
 	}
@@ -74,8 +74,8 @@ func main() {
 
 	defer func() {
 		select {
-		case _, ok := <-server.ErrChan:
-			if !ok {
+		case _, ok := <-(server.ErrChan):
+			if ok {
 				close(server.ErrChan)
 			}
 		default:
