@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/ferch5003/go-fiber-tutorial/cmd/api/bootstrap"
 	"github.com/ferch5003/go-fiber-tutorial/cmd/api/router"
 	"github.com/ferch5003/go-fiber-tutorial/config"
@@ -10,6 +9,7 @@ import (
 	"github.com/ferch5003/go-fiber-tutorial/internal/platform/console"
 	"github.com/ferch5003/go-fiber-tutorial/internal/platform/mysql"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -20,12 +20,13 @@ func main() {
 	}
 
 	ctx := context.Background()
-
 	mysqlCtx := context.Background()
-
 	mySQLContainer := mysql.NewMySQLContainer(mysqlCtx)
-
 	cmd := console.NewConsole()
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
 
 	app := fx.New(
 		// Clear terminal/console
@@ -35,6 +36,8 @@ func main() {
 		fx.Provide(config.NewConfigurations),
 		// creates: *bootstrap.Server
 		fx.Supply(server),
+		// creates: *zap.Logger
+		fx.Supply(logger),
 		// creates: *fiber.Router
 		fx.Provide(
 			fx.Annotate(
@@ -72,7 +75,7 @@ func main() {
 	defer func() {
 		select {
 		case _, ok := <-server.ErrChan:
-			if ok {
+			if !ok {
 				close(server.ErrChan)
 			}
 		default:
@@ -84,29 +87,25 @@ func main() {
 	}
 
 	select {
-	case <-ctx.Done():
+	case <-app.Done():
 		if err := app.Stop(ctx); err != nil {
-			fmt.Println("Error stopping the app...", err)
+			logger.DPanic("Error stopping the app...", zap.Error(err))
 		}
 
-		fmt.Println("Application terminated successfully!")
+		logger.Info("Application terminated successfully!")
 
 		if err := mySQLContainer.CleanContainer(); err != nil {
-			fmt.Println("Error cleaning MySQL container: ", err)
+			logger.DPanic("Error cleaning MySQL container: ", zap.Error(err))
 		}
-
-		return
 	case err := <-server.ErrChan:
-		fmt.Println(err)
+		logger.Info("", zap.Error(err))
 
 		if err = app.Stop(ctx); err != nil {
-			fmt.Println("Error stopping the app...", err)
+			logger.DPanic("Error stopping the app...", zap.Error(err))
 		}
 
 		if err := mySQLContainer.CleanContainer(); err != nil {
-			fmt.Println("Error cleaning MySQL container: ", err)
+			logger.DPanic("Error cleaning MySQL container: ", zap.Error(err))
 		}
-
-		return
 	}
 }

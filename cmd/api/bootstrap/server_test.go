@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 	"testing"
 )
 
@@ -36,6 +37,7 @@ func TestStart_Successful(t *testing.T) {
 				fx.As(new(router.Router))),
 		),
 		fx.Provide(router.NewRouter),
+		fx.Provide(zap.NewDevelopment),
 		fx.Provide(config.NewConfigurations),
 		fx.Supply(server),
 		fx.Provide(NewFiberServer),
@@ -72,6 +74,7 @@ func TestStart_FailsDueToInvalidConfiguration(t *testing.T) {
 				fx.As(new(router.Router))),
 		),
 		fx.Provide(router.NewRouter),
+		fx.Provide(zap.NewDevelopment),
 		fx.Supply(&config.EnvVars{Host: "bad_host", Port: "bad_port"}),
 		fx.Supply(server),
 		fx.Provide(NewFiberServer),

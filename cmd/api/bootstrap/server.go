@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"github.com/ferch5003/go-fiber-tutorial/cmd/api/router"
 	"github.com/ferch5003/go-fiber-tutorial/config"
+	"github.com/gofiber/contrib/fiberzap/v2"
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
 const (
@@ -35,7 +36,8 @@ func Start(
 	cfg *config.EnvVars,
 	server *Server,
 	app *fiber.App,
-	router *router.GeneralRouter) {
+	router *router.GeneralRouter,
+	logger *zap.Logger) {
 	host := _defaultHost // Default Host
 	if cfg != nil && cfg.Host != "" {
 		host = cfg.Host
@@ -47,18 +49,20 @@ func Start(
 	}
 
 	// Log all requests.
-	app.Use(logger.New())
+	app.Use(fiberzap.New(fiberzap.Config{
+		Logger: logger,
+	}))
 
 	app.Use(recover.New())
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			fmt.Printf("Starting fiber server on %s:%s\n", host, port)
+			logger.Info(fmt.Sprintf("Starting fiber server on %s:%s", host, port))
 
 			router.Register()
 
 			go func() {
-				fmt.Println("Starting...")
+				logger.Info("Starting...")
 
 				if err := app.Listen(fmt.Sprintf("%s:%s", host, port)); err != nil {
 					server.ErrChan <- err
@@ -68,7 +72,7 @@ func Start(
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			fmt.Println("Closing server...")
+			logger.Info("Closing server...")
 
 			return app.Shutdown()
 		},
