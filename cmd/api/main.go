@@ -8,6 +8,7 @@ import (
 	"github.com/ferch5003/go-fiber-tutorial/db/seeds"
 	"github.com/ferch5003/go-fiber-tutorial/internal/platform/console"
 	"github.com/ferch5003/go-fiber-tutorial/internal/platform/mysql"
+	"github.com/ferch5003/go-fiber-tutorial/internal/platform/redis"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
@@ -20,8 +21,13 @@ func main() {
 	}
 
 	ctx := context.Background()
+
 	mysqlCtx := context.Background()
 	mySQLContainer := mysql.NewMySQLContainer(mysqlCtx)
+
+	redisCtx := context.Background()
+	redisContainer := redis.NewRedisContainer(redisCtx)
+
 	cmd := console.NewConsole()
 	logger, err := zap.NewProduction()
 	if err != nil {
@@ -58,6 +64,9 @@ func main() {
 
 		// creates: *sqlx.DB
 		fx.Provide(mysql.NewMySQLConnection),
+
+		// Create Redis Container
+		fx.Invoke(redisContainer.CreateOrUseContainer),
 
 		// Provide modules
 		router.NewUserModule,

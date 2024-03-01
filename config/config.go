@@ -7,14 +7,23 @@ import (
 )
 
 type EnvVars struct {
-	AppName       string
-	AppSecretKey  string
-	Host          string
-	Port          string
+	// App Data.
+	AppName      string
+	AppSecretKey string
+	Host         string
+	Port         string
+
+	// MySQL Data.
 	MySQLDSN      string
 	MySQLUsername string
 	MySQLPassword string
 	MySQLDB       string
+
+	// Redis Data.
+	RedisConnection string
+	RedisUsername   string
+	RedisPassword   string
+	RedisDB         string
 }
 
 func NewConfigurations() (*EnvVars, error) {
@@ -31,20 +40,32 @@ func NewConfigurations() (*EnvVars, error) {
 	appSecretKey := os.Getenv("APP_SECRET_KEY")
 	host := os.Getenv("HOST")
 	port := os.Getenv("PORT")
+
 	mySQLDSN := os.Getenv("MYSQL_DSN")
 	mySQLUsername := os.Getenv("MYSQL_USERNAME")
 	mySQLPassword := os.Getenv("MYSQL_PASSWORD")
 	mySQLDB := os.Getenv("MYSQL_DB")
 
+	redisConnection := os.Getenv("REDIS_CONNECTION")
+	redisUsername := os.Getenv("REDIS_USERNAME")
+	redisPassword := os.Getenv("REDIS_PASSWORD")
+	redisLDB := os.Getenv("REDIS")
+
 	environment := &EnvVars{
-		AppName:       appName,
-		AppSecretKey:  appSecretKey,
-		Host:          host,
-		Port:          port,
+		AppName:      appName,
+		AppSecretKey: appSecretKey,
+		Host:         host,
+		Port:         port,
+
 		MySQLDSN:      mySQLDSN,
 		MySQLUsername: mySQLUsername,
 		MySQLPassword: mySQLPassword,
 		MySQLDB:       mySQLDB,
+
+		RedisConnection: redisConnection,
+		RedisUsername:   redisUsername,
+		RedisPassword:   redisPassword,
+		RedisDB:         redisLDB,
 	}
 
 	return environment, nil
