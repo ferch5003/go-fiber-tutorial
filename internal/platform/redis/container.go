@@ -20,7 +20,7 @@ func NewRedisContainer(ctx context.Context) platform.Container {
 	}
 }
 
-func (r redisContainer) CreateOrUseContainer(config *config.EnvVars) (err error) {
+func (r *redisContainer) CreateOrUseContainer(config *config.EnvVars) (err error) {
 	container, err := redis.RunContainer(r.ctx,
 		testcontainers.WithImage("docker.io/redis:latest"),
 		redis.WithSnapshotting(10, 2),
@@ -39,11 +39,9 @@ func (r redisContainer) CreateOrUseContainer(config *config.EnvVars) (err error)
 
 	config.RedisConnection = connectionString
 
-	fmt.Println(connectionString)
-
 	return nil
 }
 
-func (r redisContainer) CleanContainer() (err error) {
+func (r *redisContainer) CleanContainer() error {
 	return r.container.Terminate(r.ctx)
 }

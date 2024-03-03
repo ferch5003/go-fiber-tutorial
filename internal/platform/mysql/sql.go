@@ -8,7 +8,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func NewMySQLConnection(config *config.EnvVars) (*sqlx.DB, error) {
+func NewConnection(config *config.EnvVars) (*sqlx.DB, error) {
 	db := sqlx.MustConnect("mysql", config.MySQLDSN)
 
 	if err := db.Ping(); err != nil {

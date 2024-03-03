@@ -63,10 +63,13 @@ func main() {
 		fx.Invoke(mySQLContainer.CreateOrUseContainer),
 
 		// creates: *sqlx.DB
-		fx.Provide(mysql.NewMySQLConnection),
+		fx.Provide(mysql.NewConnection),
 
 		// Create Redis Container
 		fx.Invoke(redisContainer.CreateOrUseContainer),
+
+		// creates: *redis.Client
+		fx.Provide(redis.NewConnection),
 
 		// Provide modules
 		router.NewUserModule,

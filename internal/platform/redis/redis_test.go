@@ -1,4 +1,4 @@
-package mysql
+package redis
 
 import (
 	"context"
@@ -10,11 +10,9 @@ import (
 func TestNewConnection_Successful(t *testing.T) {
 	// Given
 	configs := &config.EnvVars{
-		MySQLUsername: "root",
-		MySQLPassword: "root",
-		MySQLDB:       "fiber_example",
+		RedisConnection: "redis://localhost:6379",
 	}
-	container := NewMySQLContainer(context.Background())
+	container := NewRedisContainer(context.Background())
 
 	err := container.CreateOrUseContainer(configs)
 	require.NoError(t, err)
