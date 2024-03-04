@@ -6,6 +6,7 @@ import (
 	"github.com/ferch5003/go-fiber-tutorial/internal/domain"
 	"github.com/ferch5003/go-fiber-tutorial/internal/platform/data"
 	"github.com/ferch5003/go-fiber-tutorial/internal/platform/jwtauth"
+	"github.com/ferch5003/go-fiber-tutorial/internal/platform/session"
 	"github.com/ferch5003/go-fiber-tutorial/internal/platform/validations"
 	"github.com/ferch5003/go-fiber-tutorial/internal/user"
 	"github.com/gofiber/fiber/v2"
@@ -13,12 +14,14 @@ import (
 )
 
 type UserHandler struct {
-	config    *jwtauth.Config
-	validator *validations.XValidator
-	service   user.Service
+	config         *jwtauth.Config
+	validator      *validations.XValidator
+	sessionType    string
+	userService    user.Service
+	sessionService session.Service
 }
 
-func NewUserHandler(config *config.EnvVars, service user.Service) *UserHandler {
+func NewUserHandler(config *config.EnvVars, userService user.Service, sessionService session.Service) *UserHandler {
 	jwtConfig := &jwtauth.Config{
 		AppName: config.AppName,
 		Secret:  config.AppSecretKey,
@@ -27,9 +30,11 @@ func NewUserHandler(config *config.EnvVars, service user.Service) *UserHandler {
 	myValidator := validations.NewValidator()
 
 	return &UserHandler{
-		config:    jwtConfig,
-		validator: myValidator,
-		service:   service,
+		config:         jwtConfig,
+		validator:      myValidator,
+		sessionType:    config.AppSessionType,
+		userService:    userService,
+		sessionService: sessionService,
 	}
 }
 
@@ -49,7 +54,7 @@ func (h *UserHandler) Get(c *fiber.Ctx) error {
 		})
 	}
 
-	obtainedUser, err := h.service.Get(c.Context(), id)
+	obtainedUser, err := h.userService.Get(c.Context(), id)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -95,7 +100,7 @@ func (h *UserHandler) RegisterUser(c *fiber.Ctx) error {
 		})
 	}
 
-	createdUser, err := h.service.Save(c.Context(), userData)
+	createdUser, err := h.userService.Save(c.Context(), userData)
 	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"error": err.Error(),
@@ -103,11 +108,19 @@ func (h *UserHandler) RegisterUser(c *fiber.Ctx) error {
 	}
 
 	fullName := fmt.Sprintf("%s %s", createdUser.FirstName, createdUser.LastName)
-	token, err := jwtauth.GenerateToken(createdUser.ID, fullName, *h.config)
+	token, claims, err := jwtauth.GenerateToken(createdUser.ID, fullName, *h.config)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": err.Error(),
 		})
+	}
+
+	if h.sessionType == "app" {
+		if err := h.sessionService.SetSession(c.Context(), token, claims); err != nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
 	}
 
 	var showedUser showUser
@@ -143,7 +156,7 @@ func (h *UserHandler) LoginUser(c *fiber.Ctx) error {
 	columns := []string{"Email", "Password"}
 	data.OverwriteStruct(&userData, logUser, columns)
 
-	obtainedUser, err := h.service.GetByEmail(c.Context(), userData.Email)
+	obtainedUser, err := h.userService.GetByEmail(c.Context(), userData.Email)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -157,11 +170,19 @@ func (h *UserHandler) LoginUser(c *fiber.Ctx) error {
 	}
 
 	fullName := fmt.Sprintf("%s %s", obtainedUser.FirstName, obtainedUser.LastName)
-	token, err := jwtauth.GenerateToken(obtainedUser.ID, fullName, *h.config)
+	token, claims, err := jwtauth.GenerateToken(obtainedUser.ID, fullName, *h.config)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": err.Error(),
 		})
+	}
+
+	if h.sessionType == "app" {
+		if err := h.sessionService.SetSession(c.Context(), token, claims); err != nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
 	}
 
 	var showedUser showUser
@@ -187,7 +208,7 @@ func (h *UserHandler) Update(c *fiber.Ctx) error {
 		})
 	}
 
-	userID, err := getAuthUserID(c)
+	userID, err := getAuthUserID(c, h.sessionService, h.sessionType)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": err.Error(),
@@ -200,7 +221,7 @@ func (h *UserHandler) Update(c *fiber.Ctx) error {
 		})
 	}
 
-	obtainedUser, err := h.service.Get(c.Context(), id)
+	obtainedUser, err := h.userService.Get(c.Context(), id)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -224,7 +245,7 @@ func (h *UserHandler) Update(c *fiber.Ctx) error {
 	columns := []string{"FirstName", "LastName", "Email"}
 	data.OverwriteStruct(&obtainedUser, userToUpdate, columns)
 
-	updatedUser, err := h.service.Update(c.Context(), obtainedUser)
+	updatedUser, err := h.userService.Update(c.Context(), obtainedUser)
 	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"error": err.Error(),
@@ -248,7 +269,7 @@ func (h *UserHandler) Delete(c *fiber.Ctx) error {
 		})
 	}
 
-	userID, err := getAuthUserID(c)
+	userID, err := getAuthUserID(c, h.sessionService, h.sessionType)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": err.Error(),
@@ -261,7 +282,7 @@ func (h *UserHandler) Delete(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := h.service.Delete(c.Context(), id); err != nil {
+	if err := h.userService.Delete(c.Context(), id); err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})

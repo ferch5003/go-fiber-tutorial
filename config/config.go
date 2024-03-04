@@ -8,10 +8,11 @@ import (
 
 type EnvVars struct {
 	// App Data.
-	AppName      string
-	AppSecretKey string
-	Host         string
-	Port         string
+	AppName        string
+	AppSecretKey   string
+	AppSessionType string // Fiber JWT or Manual JWT ("fiber" or "app").
+	Host           string
+	Port           string
 
 	// MySQL Data.
 	MySQLDSN      string
@@ -38,6 +39,7 @@ func NewConfigurations() (*EnvVars, error) {
 
 	appName := os.Getenv("APP_NAME")
 	appSecretKey := os.Getenv("APP_SECRET_KEY")
+	appSessionType := os.Getenv("APP_SESSION_TYPE")
 	host := os.Getenv("HOST")
 	port := os.Getenv("PORT")
 
@@ -52,10 +54,11 @@ func NewConfigurations() (*EnvVars, error) {
 	redisLDB := os.Getenv("REDIS")
 
 	environment := &EnvVars{
-		AppName:      appName,
-		AppSecretKey: appSecretKey,
-		Host:         host,
-		Port:         port,
+		AppName:        appName,
+		AppSecretKey:   appSecretKey,
+		AppSessionType: appSessionType,
+		Host:           host,
+		Port:           port,
 
 		MySQLDSN:      mySQLDSN,
 		MySQLUsername: mySQLUsername,

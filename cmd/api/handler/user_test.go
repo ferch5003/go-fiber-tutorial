@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ferch5003/go-fiber-tutorial/config"
 	"github.com/ferch5003/go-fiber-tutorial/internal/domain"
 	"github.com/ferch5003/go-fiber-tutorial/internal/middlewares"
 	"github.com/ferch5003/go-fiber-tutorial/internal/platform/jwtauth"
@@ -21,11 +20,6 @@ import (
 )
 
 const _usersPath = "/users"
-
-var _testConfigs = &config.EnvVars{
-	AppName:      "test",
-	AppSecretKey: "test",
-}
 
 type _jwtInfo struct {
 	ID   int
@@ -69,7 +63,22 @@ func (usm *userServiceMock) Delete(ctx context.Context, id int) error {
 func createUserServer(usm *userServiceMock) *fiber.App {
 	app := fiber.New()
 
-	userHandler := NewUserHandler(_testConfigs, usm)
+	ssm := new(sessionServiceMock)
+	ssm.On("SetSession", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	ssm.On("GetSession", mock.Anything, mock.Anything).Return(map[string]string{
+		"iss":  "test",
+		"sub":  "1",
+		"name": "test",
+	}, nil)
+
+	userHandler := NewUserHandler(_testConfigs, usm, ssm)
+
+	jwtMiddleware := middlewares.NewJWTMiddleware(
+		context.Background(),
+		_testConfigs.AppSessionType,
+		_testConfigs.AppSecretKey,
+		ssm,
+	)
 
 	app.Route("/users", func(api fiber.Router) {
 		api.Get("/:id", userHandler.Get).Name("get")
@@ -77,7 +86,7 @@ func createUserServer(usm *userServiceMock) *fiber.App {
 		api.Post("/login", userHandler.LoginUser).Name("login")
 
 		// Using JWT Middleware.
-		protectedRoutes := api.Group("", middlewares.JWTMiddleware(userHandler.config.Secret))
+		protectedRoutes := api.Group("", jwtMiddleware.GetMiddleware())
 		protectedRoutes.Patch("/:id", userHandler.Update).Name("update")
 		protectedRoutes.Delete("/:id", userHandler.Delete).Name("delete")
 	}, "users.")
@@ -90,7 +99,7 @@ func createUserRequest(method string, url string, userSession *_jwtInfo, body st
 	req.Header.Add("Content-Type", "application/json")
 
 	if userSession != nil {
-		token, err := jwtauth.GenerateToken(userSession.ID, userSession.Name, *_testSessionConfigs)
+		token, _, err := jwtauth.GenerateToken(userSession.ID, userSession.Name, *_testSessionConfigs)
 		if err != nil {
 			return nil, err
 		}

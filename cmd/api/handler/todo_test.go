@@ -51,11 +51,26 @@ func (tsm *todoServiceMock) Delete(ctx context.Context, id int) error {
 func createTodoServer(tsm *todoServiceMock) *fiber.App {
 	app := fiber.New()
 
-	todoHandler := NewTodoHandler(tsm)
+	ssm := new(sessionServiceMock)
+	ssm.On("SetSession", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	ssm.On("GetSession", mock.Anything, mock.Anything).Return(map[string]string{
+		"iss":  "test",
+		"sub":  "1",
+		"name": "test",
+	}, nil)
+
+	todoHandler := NewTodoHandler(_testConfigs, tsm, ssm)
+
+	jwtMiddleware := middlewares.NewJWTMiddleware(
+		context.Background(),
+		_testConfigs.AppSessionType,
+		_testConfigs.AppSecretKey,
+		ssm,
+	)
 
 	app.Route("/todos", func(api fiber.Router) {
 		// Using JWT Middleware.
-		protectedRoutes := api.Group("", middlewares.JWTMiddleware(_testSessionConfigs.Secret))
+		protectedRoutes := api.Group("", jwtMiddleware.GetMiddleware())
 		protectedRoutes.Get("/", todoHandler.GetAll).Name("get_all")
 		protectedRoutes.Get("/:id", todoHandler.Get).Name("get")
 		protectedRoutes.Post("/", todoHandler.Save).Name("save")

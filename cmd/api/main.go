@@ -9,6 +9,7 @@ import (
 	"github.com/ferch5003/go-fiber-tutorial/internal/platform/console"
 	"github.com/ferch5003/go-fiber-tutorial/internal/platform/mysql"
 	"github.com/ferch5003/go-fiber-tutorial/internal/platform/redis"
+	"github.com/ferch5003/go-fiber-tutorial/internal/platform/session"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
@@ -18,6 +19,11 @@ import (
 func main() {
 	server := &bootstrap.Server{
 		ErrChan: make(chan error),
+	}
+
+	configurations, err := config.NewConfigurations()
+	if err != nil {
+		panic(err)
 	}
 
 	ctx := context.Background()
@@ -39,7 +45,7 @@ func main() {
 		fx.Invoke(cmd.Clear),
 
 		// creates: config.EnvVars
-		fx.Provide(config.NewConfigurations),
+		fx.Supply(configurations),
 		// creates: *bootstrap.Server
 		fx.Supply(server),
 		// creates: *zap.Logger
@@ -66,10 +72,22 @@ func main() {
 		fx.Provide(mysql.NewConnection),
 
 		// Create Redis Container
-		fx.Invoke(redisContainer.CreateOrUseContainer),
+
+		fx.Invoke(func() error {
+			if configurations.AppSessionType != "app" {
+				return nil
+			}
+
+			return redisContainer.CreateOrUseContainer(configurations)
+		}),
 
 		// creates: *redis.Client
 		fx.Provide(redis.NewConnection),
+
+		// creates: *session.Repository
+		fx.Provide(session.NewRepository),
+		// creates: *session.Service
+		fx.Provide(session.NewService),
 
 		// Provide modules
 		router.NewUserModule,
@@ -109,6 +127,10 @@ func main() {
 		if err := mySQLContainer.CleanContainer(); err != nil {
 			logger.DPanic("Error cleaning MySQL container: ", zap.Error(err))
 		}
+
+		if err := redisContainer.CleanContainer(); err != nil {
+			logger.DPanic("Error cleaning Redis container: ", zap.Error(err))
+		}
 	case err := <-server.ErrChan:
 		logger.Info("", zap.Error(err))
 
@@ -118,6 +140,10 @@ func main() {
 
 		if err := mySQLContainer.CleanContainer(); err != nil {
 			logger.DPanic("Error cleaning MySQL container: ", zap.Error(err))
+		}
+
+		if err := redisContainer.CleanContainer(); err != nil {
+			logger.DPanic("Error cleaning Redis container: ", zap.Error(err))
 		}
 	}
 }

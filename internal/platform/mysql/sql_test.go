@@ -8,6 +8,8 @@ import (
 )
 
 func TestNewConnection_Successful(t *testing.T) {
+	t.Parallel()
+
 	// Given
 	configs := &config.EnvVars{
 		MySQLUsername: "root",

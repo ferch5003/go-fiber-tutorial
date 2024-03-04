@@ -10,10 +10,10 @@ type Config struct {
 	Secret  string
 }
 
-func GenerateToken(id int, name string, cfg Config) (string, error) {
+func GenerateToken(id int, name string, cfg Config) (string, map[string]any, error) {
 	location, err := time.LoadLocation("Local")
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	claims := jwt.MapClaims{
@@ -27,8 +27,8 @@ func GenerateToken(id int, name string, cfg Config) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	t, err := token.SignedString([]byte(cfg.Secret))
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
-	return t, nil
+	return t, claims, nil
 }

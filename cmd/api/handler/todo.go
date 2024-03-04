@@ -1,35 +1,41 @@
 package handler
 
 import (
+	"github.com/ferch5003/go-fiber-tutorial/config"
 	"github.com/ferch5003/go-fiber-tutorial/internal/domain"
+	"github.com/ferch5003/go-fiber-tutorial/internal/platform/session"
 	"github.com/ferch5003/go-fiber-tutorial/internal/platform/validations"
 	"github.com/ferch5003/go-fiber-tutorial/internal/todo"
 	"github.com/gofiber/fiber/v2"
 )
 
 type TodoHandler struct {
-	validator *validations.XValidator
-	service   todo.Service
+	validator      *validations.XValidator
+	sessionType    string
+	todoService    todo.Service
+	sessionService session.Service
 }
 
-func NewTodoHandler(service todo.Service) *TodoHandler {
+func NewTodoHandler(cfg *config.EnvVars, todoService todo.Service, sessionService session.Service) *TodoHandler {
 	myValidator := validations.NewValidator()
 
 	return &TodoHandler{
-		validator: myValidator,
-		service:   service,
+		validator:      myValidator,
+		sessionType:    cfg.AppSessionType,
+		todoService:    todoService,
+		sessionService: sessionService,
 	}
 }
 
 func (h *TodoHandler) GetAll(c *fiber.Ctx) error {
-	userID, err := getAuthUserID(c)
+	userID, err := getAuthUserID(c, h.sessionService, h.sessionType)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
 
-	todos, err := h.service.GetAll(c.Context(), userID)
+	todos, err := h.todoService.GetAll(c.Context(), userID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -47,7 +53,7 @@ func (h *TodoHandler) Get(c *fiber.Ctx) error {
 		})
 	}
 
-	obtainedTodo, err := h.service.Get(c.Context(), id)
+	obtainedTodo, err := h.todoService.Get(c.Context(), id)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -58,7 +64,7 @@ func (h *TodoHandler) Get(c *fiber.Ctx) error {
 }
 
 func (h *TodoHandler) Save(c *fiber.Ctx) error {
-	userID, err := getAuthUserID(c)
+	userID, err := getAuthUserID(c, h.sessionService, h.sessionType)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": err.Error(),
@@ -82,7 +88,7 @@ func (h *TodoHandler) Save(c *fiber.Ctx) error {
 		})
 	}
 
-	savedTodo, err := h.service.Save(c.Context(), todoData)
+	savedTodo, err := h.todoService.Save(c.Context(), todoData)
 	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"error": err.Error(),
@@ -100,14 +106,14 @@ func (h *TodoHandler) Completed(c *fiber.Ctx) error {
 		})
 	}
 
-	obtainedTodo, err := h.service.Get(c.Context(), id)
+	obtainedTodo, err := h.todoService.Get(c.Context(), id)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
 
-	userID, err := getAuthUserID(c)
+	userID, err := getAuthUserID(c, h.sessionService, h.sessionType)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": err.Error(),
@@ -120,7 +126,7 @@ func (h *TodoHandler) Completed(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := h.service.Completed(c.Context(), id); err != nil {
+	if err := h.todoService.Completed(c.Context(), id); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
@@ -139,14 +145,14 @@ func (h *TodoHandler) Delete(c *fiber.Ctx) error {
 		})
 	}
 
-	obtainedTodo, err := h.service.Get(c.Context(), id)
+	obtainedTodo, err := h.todoService.Get(c.Context(), id)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
 
-	userID, err := getAuthUserID(c)
+	userID, err := getAuthUserID(c, h.sessionService, h.sessionType)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": err.Error(),
@@ -159,7 +165,7 @@ func (h *TodoHandler) Delete(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := h.service.Delete(c.Context(), id); err != nil {
+	if err := h.todoService.Delete(c.Context(), id); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
