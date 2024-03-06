@@ -11,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
+	"sync"
 )
 
 const (
@@ -20,6 +21,8 @@ const (
 
 type Server struct {
 	ErrChan chan error
+	Wg      *sync.WaitGroup
+	Mutex   *sync.Mutex
 }
 
 func NewFiberServer() *fiber.App {
@@ -61,6 +64,7 @@ func Start(
 
 			router.Register()
 
+			server.Wg.Add(1)
 			go func() {
 				logger.Info("Starting...")
 

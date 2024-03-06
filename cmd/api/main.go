@@ -12,6 +12,7 @@ import (
 	"github.com/ferch5003/go-fiber-tutorial/internal/platform/session"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
+	"sync"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -19,6 +20,8 @@ import (
 func main() {
 	server := &bootstrap.Server{
 		ErrChan: make(chan error),
+		Wg:      &sync.WaitGroup{},
+		Mutex:   &sync.Mutex{},
 	}
 
 	configurations, err := config.NewConfigurations()
@@ -103,6 +106,8 @@ func main() {
 	)
 
 	defer func() {
+		defer server.Wg.Done()
+		server.Mutex.Lock()
 		select {
 		case _, ok := <-(server.ErrChan):
 			if ok {
@@ -110,6 +115,7 @@ func main() {
 			}
 		default:
 		}
+		server.Mutex.Unlock()
 	}()
 
 	if err := app.Start(ctx); err != nil {
@@ -146,4 +152,6 @@ func main() {
 			logger.DPanic("Error cleaning Redis container: ", zap.Error(err))
 		}
 	}
+
+	server.Wg.Wait()
 }
