@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
+	"sync"
 	"testing"
 )
 
@@ -23,6 +24,8 @@ func TestStart_Successful(t *testing.T) {
 	// Given
 	server := &Server{
 		ErrChan: make(chan error),
+		Wg:      &sync.WaitGroup{},
+		Mutex:   &sync.Mutex{},
 	}
 
 	defer close(server.ErrChan)
@@ -60,6 +63,8 @@ func TestStart_FailsDueToInvalidConfiguration(t *testing.T) {
 	// Given
 	server := &Server{
 		ErrChan: make(chan error),
+		Wg:      &sync.WaitGroup{},
+		Mutex:   &sync.Mutex{},
 	}
 
 	defer close(server.ErrChan)
